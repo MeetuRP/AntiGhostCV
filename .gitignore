@@ -1,0 +1,52 @@
+# ==================== Python / Backend ====================
+backend/venv/
+backend/__pycache__/
+backend/app/__pycache__/
+backend/app/**/__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+dist/
+build/
+
+# ==================== Environment / Secrets ====================
+.env
+.env.local
+.env.production
+*.env
+
+# ==================== Uploads (user resume files) ====================
+uploads/
+backend/uploads/
+
+# ==================== Node / Frontend ====================
+frontend/node_modules/
+node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==================== IDE / Editor ====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ==================== OS Files ====================
+desktop.ini
+*.lnk
+
+# ==================== Temp / Build ====================
+temp_hirelytics/
+*.log
+.cache/
+tmp/
