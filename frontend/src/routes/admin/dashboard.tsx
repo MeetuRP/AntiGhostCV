@@ -251,8 +251,8 @@ const AdminDashboard = () => {
             <Navbar />
 
             <section className="main-section">
-                {/* Admin Header */}
                 <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px 0' }}>
+                    {/* Admin Header Content */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
                         <div>
                             <h1 className="text-gradient" style={{ fontSize: 28, fontWeight: 800, margin: 0 }}>🛡️ Admin Panel</h1>
@@ -264,7 +264,7 @@ const AdminDashboard = () => {
                     </div>
 
                     {/* Tabs */}
-                    <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid #e2e8f0', marginBottom: 32 }}>
+                    <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid #e2e8f0', marginBottom: 24 }}>
                         {tabItems.map((tab) => (
                             <button
                                 key={tab.key}
@@ -295,7 +295,7 @@ const AdminDashboard = () => {
                     {/* =================== DASHBOARD TAB =================== */}
                     {activeTab === 'dashboard' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-                            {/* Summary Header */}
+                            {/* Summary Header & Gradient Cards (Exclusive to Overview) */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <div>
                                     <h3 style={{ fontSize: 18, fontWeight: 700, color: '#1e293b', margin: 0 }}>📈 Performance Summary</h3>
@@ -329,7 +329,6 @@ const AdminDashboard = () => {
                                 </div>
                             </div>
 
-                            {/* Main Activity Cards (Gradients) */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
                                 {mainStats.map((card) => (
                                     <button
@@ -530,112 +529,113 @@ const AdminDashboard = () => {
                             </div>
                         </div>
                     )}
-                </div>
-                {/* =================== VISITORS TAB =================== */}
-                {activeTab === 'visitors' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                        {/* Sub-Tabs */}
-                        <div style={{ display: 'flex', gap: 12, background: 'rgba(255,255,255,0.5)', padding: 6, borderRadius: 12, width: 'fit-content' }}>
-                            <button
-                                onClick={() => setVisitorSubTab('traffic')}
-                                style={{
-                                    padding: '8px 20px',
-                                    borderRadius: 8,
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    background: visitorSubTab === 'traffic' ? '#fff' : 'transparent',
-                                    color: visitorSubTab === 'traffic' ? '#6366f1' : '#64748b',
-                                    boxShadow: visitorSubTab === 'traffic' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                🌐 Site Traffic
-                            </button>
-                            <button
-                                onClick={() => setVisitorSubTab('logins')}
-                                style={{
-                                    padding: '8px 20px',
-                                    borderRadius: 8,
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    background: visitorSubTab === 'logins' ? '#fff' : 'transparent',
-                                    color: visitorSubTab === 'logins' ? '#6366f1' : '#64748b',
-                                    boxShadow: visitorSubTab === 'logins' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                🔑 Authentication
-                            </button>
-                        </div>
 
-                        {visitorSubTab === 'traffic' ? (
-                            <div className="card" style={{ overflow: 'hidden' }}>
-                                <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
-                                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', margin: 0 }}>🌐 Recent Site Visitors ({visitors.length})</h3>
-                                </div>
-                                <div style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-                                        <thead>
-                                            <tr style={{ background: '#f8fafc' }}>
-                                                <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>IP Address</th>
-                                                <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>User Agent</th>
-                                                <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Visited At</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {visitors.map((v) => (
-                                                <tr key={v.id} style={{ borderTop: '1px solid #f1f5f9', transition: 'background 0.15s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                                                    <td style={{ padding: '14px 20px', fontWeight: 600, color: '#1e293b' }}>{v.ip}</td>
-                                                    <td style={{ padding: '14px 20px', color: '#64748b', fontSize: 12, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={v.user_agent}>
-                                                        {v.user_agent}
-                                                    </td>
-                                                    <td style={{ padding: '14px 20px', color: '#94a3b8', fontSize: 12 }}>
-                                                        {v.timestamp ? new Date(v.timestamp).toLocaleString() : '—'}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                    {/* =================== VISITORS TAB =================== */}
+                    {activeTab === 'visitors' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {/* Sub-Tabs */}
+                            <div style={{ display: 'flex', gap: 12, background: 'rgba(255,255,255,0.5)', padding: 6, borderRadius: 12, width: 'fit-content' }}>
+                                <button
+                                    onClick={() => setVisitorSubTab('traffic')}
+                                    style={{
+                                        padding: '8px 20px',
+                                        borderRadius: 8,
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        background: visitorSubTab === 'traffic' ? '#fff' : 'transparent',
+                                        color: visitorSubTab === 'traffic' ? '#6366f1' : '#64748b',
+                                        boxShadow: visitorSubTab === 'traffic' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    🌐 Site Traffic
+                                </button>
+                                <button
+                                    onClick={() => setVisitorSubTab('logins')}
+                                    style={{
+                                        padding: '8px 20px',
+                                        borderRadius: 8,
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        background: visitorSubTab === 'logins' ? '#fff' : 'transparent',
+                                        color: visitorSubTab === 'logins' ? '#6366f1' : '#64748b',
+                                        boxShadow: visitorSubTab === 'logins' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    🔑 Authentication
+                                </button>
                             </div>
-                        ) : (
-                            <div className="card" style={{ overflow: 'hidden' }}>
-                                <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
-                                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', margin: 0 }}>🔑 Recent Logins ({logins.length})</h3>
-                                </div>
-                                <div style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-                                        <thead>
-                                            <tr style={{ background: '#f8fafc' }}>
-                                                <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>User</th>
-                                                <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>IP Address</th>
-                                                <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Timestamp</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {logins.map((l) => (
-                                                <tr key={l.id} style={{ borderTop: '1px solid #f1f5f9', transition: 'background 0.15s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                                                    <td style={{ padding: '14px 20px' }}>
-                                                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{l.user_name}</div>
-                                                        <div style={{ fontSize: 11, color: '#94a3b8' }}>{l.user_email}</div>
-                                                    </td>
-                                                    <td style={{ padding: '14px 20px', color: '#64748b' }}>{l.ip}</td>
-                                                    <td style={{ padding: '14px 20px', color: '#94a3b8', fontSize: 12 }}>
-                                                        {l.timestamp ? new Date(l.timestamp).toLocaleString() : '—'}
-                                                    </td>
+
+                            {visitorSubTab === 'traffic' ? (
+                                <div className="card" style={{ overflow: 'hidden' }}>
+                                    <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
+                                        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', margin: 0 }}>🌐 Recent Site Visitors ({visitors.length})</h3>
+                                    </div>
+                                    <div style={{ overflowX: 'auto' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                                            <thead>
+                                                <tr style={{ background: '#f8fafc' }}>
+                                                    <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>IP Address</th>
+                                                    <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>User Agent</th>
+                                                    <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Visited At</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody>
+                                                {visitors.map((v) => (
+                                                    <tr key={v.id} style={{ borderTop: '1px solid #f1f5f9', transition: 'background 0.15s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                                                        <td style={{ padding: '14px 20px', fontWeight: 600, color: '#1e293b' }}>{v.ip}</td>
+                                                        <td style={{ padding: '14px 20px', color: '#64748b', fontSize: 12, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={v.user_agent}>
+                                                            {v.user_agent}
+                                                        </td>
+                                                        <td style={{ padding: '14px 20px', color: '#94a3b8', fontSize: 12 }}>
+                                                            {v.timestamp ? new Date(v.timestamp).toLocaleString() : '—'}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                )}
+                            ) : (
+                                <div className="card" style={{ overflow: 'hidden' }}>
+                                    <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
+                                        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', margin: 0 }}>🔑 Recent Logins ({logins.length})</h3>
+                                    </div>
+                                    <div style={{ overflowX: 'auto' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                                            <thead>
+                                                <tr style={{ background: '#f8fafc' }}>
+                                                    <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>User</th>
+                                                    <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>IP Address</th>
+                                                    <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Timestamp</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {logins.map((l) => (
+                                                    <tr key={l.id} style={{ borderTop: '1px solid #f1f5f9', transition: 'background 0.15s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                                                        <td style={{ padding: '14px 20px' }}>
+                                                            <div style={{ fontWeight: 600, color: '#1e293b' }}>{l.user_name}</div>
+                                                            <div style={{ fontSize: 11, color: '#94a3b8' }}>{l.user_email}</div>
+                                                        </td>
+                                                        <td style={{ padding: '14px 20px', color: '#64748b' }}>{l.ip}</td>
+                                                        <td style={{ padding: '14px 20px', color: '#94a3b8', fontSize: 12 }}>
+                                                            {l.timestamp ? new Date(l.timestamp).toLocaleString() : '—'}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </section>
         </main>
     );
