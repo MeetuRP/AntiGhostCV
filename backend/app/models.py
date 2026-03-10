@@ -31,12 +31,16 @@ class ExtractedData(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    summary: Optional[str] = None
     skills: List[str] = []
     experience: List[str] = []
     education: List[str] = []
     projects: List[str] = []
     certifications: List[str] = []
+    publications: List[str] = []
+    volunteering: List[str] = []
     links: dict = {}
+    hyperlinks: List[dict] = []  # embedded PDF annotation links
     suggested_roles: List[str] = []
 
 class UserModel(BaseModel):
@@ -77,6 +81,17 @@ class ResumeModel(BaseModel):
     user_id: str
     file_path: str
     extracted_data: ExtractedData
+    # New: Rich structured JSON used by the template engine
+    structured_resume_json: dict = Field(default_factory=dict)
+    # New: AI-edited version of the resume JSON (accepted edits applied)
+    optimized_resume_json: dict = Field(default_factory=dict)
+    # New: The template ID selected by the user
+    selected_template: str = "modern-ats"
+    # Existing: accepted/rejected inline edits
+    accepted_edits: dict = Field(default_factory=dict)
+    rejected_edits: List[str] = Field(default_factory=list)
+    # New: AI impact scores per bullet text
+    impact_scores: dict = Field(default_factory=dict)
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
 
 class AnalysisResultModel(BaseModel):

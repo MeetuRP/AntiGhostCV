@@ -8,6 +8,7 @@ from ..models import UserModel, ResumeModel, ExtractedData, SocialLinks
 from ..services.parser import ResumeParser
 from ..database import get_db
 from bson import ObjectId
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -29,7 +30,7 @@ async def upload_resume(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Parse resume
+    # Parse resume (legacy for backward compat)
     try:
         text = ResumeParser.extract_text(file_path)
         extracted_data = ResumeParser.parse_resume(text)
@@ -37,12 +38,21 @@ async def upload_resume(
         os.remove(file_path)
         raise HTTPException(status_code=500, detail=f"Error parsing resume: {str(e)}")
 
+    # NEW: Deep structured parsing (captures hyperlinks, summary, symbols, etc.)
+    try:
+        structured_json = ResumeParser.extract_structured_resume(file_path)
+    except Exception as e:
+        print(f"[Warning] Deep parser failed, falling back: {e}")
+        structured_json = extracted_data.model_dump()
+
     # Store resume in DB
     db = get_db()
     resume = ResumeModel(
         user_id=str(current_user.id),
         file_path=file_path,
-        extracted_data=extracted_data
+        extracted_data=extracted_data,
+        structured_resume_json=structured_json,
+        optimized_resume_json=structured_json,  # starts as a copy; AI edits applied later
     )
 
     result = await db.resumes.insert_one(resume.model_dump(by_alias=True, exclude={"id"}))
@@ -87,6 +97,7 @@ async def upload_resume(
         "user_id": str(current_user.id),
         "file_path": file_path,
         "extracted_data": extracted_data.model_dump(),
+        "structured_resume_json": structured_json,
     }
 
 @router.get("/me")
@@ -140,3 +151,43 @@ async def view_resume(resume_id: str, current_user: UserModel = Depends(get_curr
         media_type="application/pdf",
         filename=os.path.basename(file_path)
     )
+
+
+class TemplateUpdate(BaseModel):
+    template_id: str
+
+
+@router.get("/structured/{resume_id}")
+async def get_structured_resume(resume_id: str, current_user: UserModel = Depends(get_current_user)):
+    """Returns the structured JSON used to render ATS templates. Falls back to extracted_data for legacy resumes."""
+    db = get_db()
+    resume = await db.resumes.find_one({
+        "_id": ObjectId(resume_id),
+        "user_id": str(current_user.id)
+    })
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    structured = (
+        resume.get("optimized_resume_json")
+        or resume.get("structured_resume_json")
+        or resume.get("extracted_data", {})
+    )
+    return {
+        "resume_id": resume_id,
+        "selected_template": resume.get("selected_template", "modern-ats"),
+        "structured_resume": structured,
+    }
+
+
+@router.patch("/template/{resume_id}")
+async def update_template(resume_id: str, body: TemplateUpdate, current_user: UserModel = Depends(get_current_user)):
+    """Update the selected ATS template for a resume."""
+    db = get_db()
+    result = await db.resumes.update_one(
+        {"_id": ObjectId(resume_id), "user_id": str(current_user.id)},
+        {"$set": {"selected_template": body.template_id}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    return {"status": "success", "selected_template": body.template_id}

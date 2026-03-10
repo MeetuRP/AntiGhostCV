@@ -13,3 +13,7 @@ email-validator==2.2.0
 python-dotenv==1.0.1
 bcrypt==4.2.0
 itsdangerous==2.2.0
+sentence-transformers==3.1.1
+pymupdf==1.24.11
+python-docx==1.1.2
+openai==1.52.0

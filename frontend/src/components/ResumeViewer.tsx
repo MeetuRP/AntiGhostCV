@@ -10,6 +10,8 @@ interface ResumeViewerProps {
     className?: string;
 }
 
+
+
 const ResumeViewer: React.FC<ResumeViewerProps> = ({ url, className = "" }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [pdf, setPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -18,6 +20,8 @@ const ResumeViewer: React.FC<ResumeViewerProps> = ({ url, className = "" }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [scale, setScale] = useState(1.5);
+
+
 
     useEffect(() => {
         const loadPdf = async () => {
@@ -61,6 +65,8 @@ const ResumeViewer: React.FC<ResumeViewerProps> = ({ url, className = "" }) => {
                         canvas: canvas
                     };
                     await page.render(renderContext).promise;
+
+
                 }
             } catch (error) {
                 console.error('Error rendering page:', error);
@@ -110,8 +116,10 @@ const ResumeViewer: React.FC<ResumeViewerProps> = ({ url, className = "" }) => {
                         display: none;
                     }
                 `}</style>
-                <div className="shadow-[0_25px_70px_rgba(0,0,0,0.15)] rounded-sm bg-white border border-slate-300 h-fit">
-                    <canvas ref={canvasRef} className="max-w-full h-auto transition-transform duration-200 ease-out origin-top" />
+                <div className="shadow-[0_25px_70px_rgba(0,0,0,0.15)] rounded-sm bg-white border border-slate-300 h-fit relative">
+                    <canvas ref={canvasRef} className="max-w-full h-auto origin-top" />
+
+
                 </div>
                 {/* Spacer to ensure scrolling past the fixed/absolute bottom controls */}
                 <div className="h-32 w-full flex-shrink-0" />
@@ -147,8 +155,9 @@ const ResumeViewer: React.FC<ResumeViewerProps> = ({ url, className = "" }) => {
                     </div>
                 </div>
             )}
-            {/* Floating Zoom Controls (Top Right) */}
-            <div className="absolute top-6 right-6 flex items-center gap-2 bg-white/90 backdrop-blur shadow-xl border border-slate-200 p-1.5 rounded-2xl z-30 font-sans">
+            {/* Zoom Controls (Top Right) */}
+            <div className="absolute top-6 right-6 flex items-center gap-3 bg-white/90 backdrop-blur shadow-xl border border-slate-200 p-2 rounded-2xl z-30 font-sans">
+
                 <button
                     onClick={() => setScale(prev => Math.max(prev - 0.2, 0.5))}
                     className="w-9 h-9 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
