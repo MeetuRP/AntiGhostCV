@@ -10,8 +10,20 @@ from ..database import get_db
 from ..models import UserModel, UserRegister, UserLogin, OnboardingData, UserProfileUpdate
 from ..middleware import get_current_user
 import bcrypt
+import logging
+
+logging.basicConfig(filename='auth_debug.log', level=logging.INFO, force=True)
 
 router = APIRouter()
+
+@router.get("/test_session_set")
+async def session_set(request: Request):
+    request.session["test_key"] = "test_value"
+    return {"message": "session set"}
+
+@router.get("/test_session_get")
+async def session_get(request: Request):
+    return {"message": request.session.get("test_key")}
 
 oauth = OAuth()
 oauth.register(
@@ -125,6 +137,10 @@ async def google_login(request: Request):
 
 @router.get("/google/callback")
 async def google_callback(request: Request):
+    import logging
+    logging.info(f"Cookies in callback: {request.cookies}")
+    logging.info(f"Headers in callback: {request.headers}")
+    logging.info(f"Session in callback: {request.session}")
     try:
         token = await oauth.google.authorize_access_token(request)
     except Exception as e:

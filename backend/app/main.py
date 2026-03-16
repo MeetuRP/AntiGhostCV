@@ -22,7 +22,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(SessionMiddleware, secret_key=settings.JWT_SECRET)
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key=settings.JWT_SECRET,
+    session_cookie="antighost_session",
+    max_age=14 * 24 * 60 * 60,
+    same_site="lax",
+    https_only=False
+)
 
 @app.on_event("startup")
 async def startup_db_client():

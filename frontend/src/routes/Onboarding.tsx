@@ -14,6 +14,37 @@ const steps = [
     { id: 6, title: "Success" }
 ];
 
+const INDUSTRY_ROLES = [
+    { id: 'se', label: 'Software Engineer', icon: FiMonitor },
+    { id: 'backend', label: 'Backend Developer', icon: FiDatabase },
+    { id: 'frontend', label: 'Frontend Engineer', icon: FiLayers },
+    { id: 'fullstack', label: 'Fullstack Developer', icon: FiCpu },
+    { id: 'uiux', label: 'UI/UX Designer', icon: FiMonitor },
+    { id: 'product_designer', label: 'Product Designer', icon: FiMonitor },
+    { id: 'ds', label: 'Data Scientist', icon: FiLayers },
+    { id: 'data_engineer', label: 'Data Engineer', icon: FiDatabase },
+    { id: 'ai', label: 'AI/ML Engineer', icon: FiCpu },
+    { id: 'devops', label: 'DevOps Engineer', icon: FiDatabase },
+    { id: 'sre', label: 'Site Reliability Engineer', icon: FiMonitor },
+    { id: 'cloud', label: 'Cloud Architect', icon: FiDatabase },
+    { id: 'security', label: 'Security Engineer', icon: FiCpu },
+    { id: 'mobile', label: 'Mobile Developer', icon: FiMonitor },
+    { id: 'product_manager', label: 'Product Manager', icon: FiBriefcase },
+    { id: 'project_manager', label: 'Project Manager', icon: FiBriefcase },
+    { id: 'qa', label: 'QA Engineer', icon: FiCheckCircle },
+    { id: 'game_dev', label: 'Game Developer', icon: FiMonitor },
+    { id: 'blockchain', label: 'Blockchain Developer', icon: FiLayers },
+    { id: 'web_dev', label: 'Web Developer', icon: FiMonitor },
+    { id: 'tech_writer', label: 'Technical Writer', icon: FiBriefcase },
+    { id: 'dba', label: 'Database Administrator', icon: FiDatabase },
+    { id: 'network', label: 'Network Engineer', icon: FiMonitor },
+    { id: 'sysadmin', label: 'Systems Administrator', icon: FiMonitor },
+    { id: 'support', label: 'IT Support Engineer', icon: FiUser },
+    { id: 'data_analyst', label: 'Data Analyst', icon: FiLayers },
+    { id: 'solutions', label: 'Solutions Architect', icon: FiCpu },
+    { id: 'other', label: 'Other Role', icon: FiBriefcase }
+];
+
 const Onboarding = () => {
     const [step, setStep] = useState(1);
     const [formData, setFormData] = useState({
@@ -40,31 +71,57 @@ const Onboarding = () => {
         setTimeout(nextStep, 300);
     };
 
+    const [analysisResult, setAnalysisResult] = useState<any>(null);
+
     const startAnalysis = async () => {
         setStep(5);
-        const checks = [
-            "Scanning resume structure...",
-            "Checking keyword density...",
-            "Analyzing ATS compatibility...",
-            "Extracting achievements...",
-            "Evaluating professional tone...",
-            "Finalizing diagnosis..."
-        ];
-
-        for (let i = 0; i < checks.length; i++) {
-            setAnalysisText(checks[i]);
-            setProgress(((i + 1) / checks.length) * 100);
-            await new Promise(r => setTimeout(r, 800));
-        }
-
-        // Finalize in DB
+        setAnalysisText("Uploading resume...");
+        setProgress(10);
+        
         try {
+            // 1. Upload Resume
+            const formDataUpload = new FormData();
+            if (selectedFile) {
+                formDataUpload.append("file", selectedFile);
+            }
+            
+            const uploadRes = await api.post('/resume/upload', formDataUpload, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            const resumeId = uploadRes.data.id;
+            
+            setProgress(40);
+            setAnalysisText("Extracting structure and skills...");
+            await new Promise(r => setTimeout(r, 600));
+
+            // 2. Evaluate Resume
+            setProgress(60);
+            setAnalysisText("Running ATS matching logic...");
+            
+            // Dummy JD to generate a score against the target role
+            const dummyJd = `Looking for a strong ${formData.target_role} with experience as a ${formData.experience_level} engineer. Core skills: React, Node.js, Python, AWS, Docker, Kubernetes, SQL, NoSQL.`;
+            
+            const evalRes = await api.post(`/analysis/evaluate?resume_id=${resumeId}&job_title=${encodeURIComponent(formData.target_role)}&job_description=${encodeURIComponent(dummyJd)}`);
+            setAnalysisResult(evalRes.data);
+            
+            setProgress(90);
+            setAnalysisText("Finalizing profile...");
+            
+            // 3. Complete Onboarding in DB
             await api.post('/auth/onboarding', formData);
             await checkAuth(); // Refresh user state
-            setStep(6);
+            
+            setProgress(100);
+            setTimeout(() => setStep(6), 500);
+
         } catch (err) {
             console.error("Onboarding failed:", err);
-            setStep(6); // Proceed anyway or show error
+            // Fallback mock if api fails (for robustness)
+            setAnalysisResult({
+                ats_score: 45,
+                suggestions: ["Upload failed or evaluation errored. Showing fallback profile."]
+            });
+            setStep(6);
         }
     };
 
@@ -150,17 +207,7 @@ const Onboarding = () => {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                                {[
-                                    { id: 'ai', label: 'AI Engineer', icon: FiCpu },
-                                    { id: 'ml', label: 'ML Engineer', icon: FiLayers },
-                                    { id: 'backend', label: 'Backend Developer', icon: FiDatabase },
-                                    { id: 'ds', label: 'Data Scientist', icon: FiMonitor },
-                                    { id: 'frontend', label: 'Frontend Engineer', icon: FiLayers },
-                                    { id: 'fullstack', label: 'Fullstack Developer', icon: FiCpu },
-                                    { id: 'cloud', label: 'Cloud Architect', icon: FiDatabase },
-                                    { id: 'security', label: 'Security Engineer', icon: FiLayers },
-                                    { id: 'other', label: 'Other Tech Role', icon: FiBriefcase }
-                                ].filter(r => r.label.toLowerCase().includes(roleSearch.toLowerCase())).map((role) => (
+                                {INDUSTRY_ROLES.filter(r => r.label.toLowerCase().includes(roleSearch.toLowerCase())).map((role) => (
                                     <button
                                         key={role.id}
                                         onClick={() => handleRoleSelect(role.label)}
@@ -178,6 +225,22 @@ const Onboarding = () => {
                                         }`}>{role.label}</span>
                                     </button>
                                 ))}
+                                {roleSearch && INDUSTRY_ROLES.filter(r => r.label.toLowerCase().includes(roleSearch.toLowerCase())).length === 0 && (
+                                    <button
+                                        key="custom"
+                                        onClick={() => handleRoleSelect(roleSearch)}
+                                        className={`p-6 rounded-3xl border text-left transition-all group ${
+                                            formData.target_role === roleSearch
+                                            ? "bg-indigo-600 text-white border-indigo-600 shadow-lg"
+                                            : "bg-white border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
+                                        }`}
+                                    >
+                                        <FiUser className="text-2xl mb-4 text-indigo-600 group-hover:scale-110 transition-transform" />
+                                        <span className="block font-black text-xs uppercase tracking-widest text-slate-900">
+                                            "{roleSearch}"
+                                        </span>
+                                    </button>
+                                )}
                             </div>
                         </motion.div>
                     )}
@@ -356,13 +419,18 @@ const Onboarding = () => {
                                 <div className="text-left space-y-4">
                                     <div className="flex justify-between items-center">
                                         <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Initial Score</span>
-                                        <span className="text-slate-900 text-xl font-black">71/100</span>
+                                        <span className="text-slate-900 text-xl font-black">{analysisResult?.ats_score || 0}/100</span>
                                     </div>
                                     <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="h-full w-[71%] bg-indigo-600" />
+                                        <div 
+                                            className={`h-full ${analysisResult?.ats_score > 70 ? 'bg-emerald-500' : 'bg-indigo-600'}`} 
+                                            style={{ width: `${analysisResult?.ats_score || 0}%` }}
+                                        />
                                     </div>
                                     <p className="text-[10px] font-bold text-slate-500 italic">
-                                        We've detected 3 structural weaknesses in your {formData.target_role} profile.
+                                        {analysisResult?.missing_skills?.length > 0
+                                            ? `We've detected ${analysisResult.missing_skills.length} missing key skills for your ${formData.target_role} profile.`
+                                            : `Your resume is a strong base for ${formData.target_role} roles.`}
                                     </p>
                                 </div>
                             </div>
