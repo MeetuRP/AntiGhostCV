@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import MarketingLayout from '../../components/marketing/MarketingLayout';
 import FeatureGrid from '../../components/marketing/FeatureGrid';
 

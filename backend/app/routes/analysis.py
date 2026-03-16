@@ -15,6 +15,13 @@ async def evaluate_resume(
     job_description: str,
     current_user: UserModel = Depends(get_current_user)
 ):
+    # Enforce JD Scan limits
+    if current_user.usage.jd_scans_used >= current_user.plan_limits.jd_scans:
+        raise HTTPException(
+            status_code=403, 
+            detail={"message": "Your plan limit has been reached", "upgrade_required": True}
+        )
+
     db = get_db()
     
     # Get resume
@@ -181,6 +188,13 @@ class ImproveLineRequest(BaseModel):
 
 @router.post("/improve-line")
 async def improve_line(req: ImproveLineRequest, current_user: UserModel = Depends(get_current_user)):
+    # Enforce Fix-It uses limits
+    if current_user.usage.fix_it_used >= current_user.plan_limits.fix_it_uses:
+        raise HTTPException(
+            status_code=403, 
+            detail={"message": "Your plan limit has been reached", "upgrade_required": True}
+        )
+
     from ..services.ai_resume_improver import improver_service
     res = await improver_service.improve_line(req.text, req.job_description, req.section, user_id=str(current_user.id))
     
@@ -196,6 +210,13 @@ class OptimizeResumeRequest(BaseModel):
 
 @router.post("/optimize-resume")
 async def optimize_resume(req: OptimizeResumeRequest, current_user: UserModel = Depends(get_current_user)):
+    # Enforce Fix-It uses limits
+    if current_user.usage.fix_it_used >= current_user.plan_limits.fix_it_uses:
+        raise HTTPException(
+            status_code=403, 
+            detail={"message": "Your plan limit has been reached", "upgrade_required": True}
+        )
+
     from ..services.ai_resume_improver import improver_service
     db = get_db()
     

@@ -9,11 +9,13 @@ import ResumeHistory from '../components/dashboard/ResumeHistory';
 import NotificationCenter from '../components/dashboard/NotificationCenter';
 import api from '../lib/api';
 import type { Resume } from '../types';
+import UpgradeModal from '../components/UpgradeModal';
 
 const Home = () => {
     const { isAuthenticated, user, isLoading } = useAuthStore();
     const [resumes, setResumes] = useState<Resume[]>([]);
     const [loadingResumes, setLoadingResumes] = useState(false);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -30,12 +32,33 @@ const Home = () => {
             };
             fetchResumes();
         }
+
+        // Setup global API interceptor for this session to catch 403 upgrade exceptions
+        const interceptor = api.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                if (error.response?.status === 403 && error.response?.data?.detail?.upgrade_required) {
+                    setShowUpgradeModal(true);
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        return () => {
+            api.interceptors.response.eject(interceptor);
+        };
     }, [isAuthenticated]);
 
     if (isLoading) return <div>Loading...</div>;
 
     return (
         <main className="bg-[url('/images/bg-main.svg')] bg-cover min-h-screen pb-20">
+            <UpgradeModal 
+                isOpen={showUpgradeModal} 
+                onClose={() => setShowUpgradeModal(false)} 
+                title="Plan Limit Reached"
+                message="You have exhausted your current plan's usage limits. Upgrade to continue generating AI improvements and scans."
+            />
             <Navbar />
             
             <section className="max-w-7xl mx-auto px-6 py-12">
@@ -119,7 +142,7 @@ const Home = () => {
                                 <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Resource Overhead</p>
                             </div>
                             {user?.usage && user?.plan_limits && (
-                                <UsageStatsCard usage={user.usage} limits={user.plan_limits} />
+                                <UsageStatsCard usage={user.usage} limits={user.plan_limits} aiUsage={user.ai_usage} />
                             )}
                         </div>
 

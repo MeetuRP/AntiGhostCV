@@ -4,9 +4,10 @@ import type { UserUsage, PlanLimits } from '../../types';
 interface UsageStatsCardProps {
     usage: UserUsage;
     limits: PlanLimits;
+    aiUsage?: any; // Added to support AI tracking
 }
 
-const UsageStatsCard: React.FC<UsageStatsCardProps> = ({ usage, limits }) => {
+const UsageStatsCard: React.FC<UsageStatsCardProps> = ({ usage, limits, aiUsage }) => {
     const stats = [
         {
             label: "Evaluations",
@@ -31,8 +32,18 @@ const UsageStatsCard: React.FC<UsageStatsCardProps> = ({ usage, limits }) => {
             icon: "✨",
             accent: "violet",
             description: "Resume line improvements"
+        },
+        {
+            label: "AI Tokens Used",
+            used: aiUsage ? (aiUsage.total_input_tokens + aiUsage.total_output_tokens) : 0,
+            limit: "∞",
+            icon: "🧠",
+            accent: "cyan",
+            description: "Total AI bandwidth"
         }
     ];
+
+    const estimatedCost = aiUsage?.estimated_cost ? aiUsage.estimated_cost.toFixed(4) : "0.0000";
 
     return (
         <div className="group relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-200/60 p-10 shadow-[0_20px_50px_rgba(0,0,0,0.04)] transition-all duration-500 hover:shadow-[0_40px_80px_rgba(99,102,241,0.08)] hover:-translate-y-1">
@@ -64,7 +75,8 @@ const UsageStatsCard: React.FC<UsageStatsCardProps> = ({ usage, limits }) => {
                         const colors: Record<string, string> = {
                             indigo: "bg-indigo-600 shadow-indigo-200",
                             emerald: "bg-emerald-500 shadow-emerald-200",
-                            violet: "bg-violet-600 shadow-violet-200"
+                            violet: "bg-violet-600 shadow-violet-200",
+                            cyan: "bg-cyan-500 shadow-cyan-200"
                         };
 
                         return (
@@ -110,7 +122,20 @@ const UsageStatsCard: React.FC<UsageStatsCardProps> = ({ usage, limits }) => {
                     })}
                 </div>
 
-                <div className="mt-16 pt-8 border-t border-slate-100 flex items-center justify-between">
+                <div className="mt-8 p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="text-xl">💰</span>
+                        <div>
+                            <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Est. API Cost</h4>
+                            <p className="text-[9px] font-bold text-slate-400">Total generated model cost</p>
+                        </div>
+                    </div>
+                    <div className="text-lg font-black text-slate-900 tabular-nums">
+                        ${estimatedCost}
+                    </div>
+                </div>
+
+                <div className="mt-8 pt-8 border-t border-slate-100 flex items-center justify-between">
                     <div className="flex gap-2">
                         <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-[10px] text-white font-black">?</div>
                         <p className="text-[9px] font-bold text-slate-400 leading-tight max-w-[150px]">

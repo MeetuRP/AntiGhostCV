@@ -78,6 +78,13 @@ export interface UserUsage {
 }
 
 
+export interface AIUsage {
+    total_api_calls: number;
+    total_input_tokens: number;
+    total_output_tokens: number;
+    estimated_cost: number;
+}
+
 export interface User {
     id: string;
     google_id: string;
@@ -95,6 +102,7 @@ export interface User {
     plan_expiry?: string;
     plan_limits: PlanLimits;
     usage: UserUsage;
+    ai_usage?: AIUsage;
     target_role?: string;
     experience_level?: string;
     onboarding_completed: boolean;

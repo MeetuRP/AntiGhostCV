@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import MarketingLayout from '../../components/marketing/MarketingLayout';
 import { FiArrowRight, FiClock, FiUser } from 'react-icons/fi';
-import { Link } from 'react-router';
+
 
 const blogPosts = [
     {
