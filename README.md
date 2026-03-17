@@ -39,6 +39,15 @@ AntiGhost CV is a state-of-the-art platform that transforms static PDFs into dyn
 - **Categorized Glass Cards** — Clean, high-contrast feedback modules with success/warning variants for intuitive reading.
 - **Unified Background Theme** — A seamless, integrated experience using a consistent project-wide background (`bg-main.svg`).
 
+### 🤖 AI-Powered "Fix-It" Logic
+- **Context-Aware Rewrite Core** — Deep structural insights powered natively by Google's Gemini-1.5/2.5-flash LLM architectures.
+- **Micro-Optimization** — Improve single bullet points individually to aggressively multiply readability metrics without losing your unique voice.
+- **Real-time SaaS Telemetry** — Absolute granular tracking of token expenditures (input vs output). Accurate cost estimation projected straight to your admin dashboard to optimize fleet management.
+
+### 💳 Tiered SaaS Infrastructure
+- **Dynamic Usage Capping** — Secure backend interception mechanisms limit JD scans and Fix-It queries based on the user's current SaaS Plan constraints.
+- **Integrated Productization Pipeline** — Fully functional `/pricing` interface allowing frictionless plan upgrades with instantaneous reset of metrics.
+
 ### 👤 Premium Glassmorphic UI
 - **Backdrop-Blur Excellence** — Every container is a frosted glass module (`glass-card`) balancing premium aesthetics with accessibility.
 - **Micro-animations** — Smooth entry transitions, hover lifts, and interactive progress bars for a "wow" first impression.
@@ -122,8 +131,9 @@ resume_analyzer/
 | **HTTP** | Axios | API client with auth interceptors |
 | **Routing** | React Router v7 | Client-side navigation + protected routes |
 | **Backend** | FastAPI (Python) | Async REST API with auto-docs |
+| **Generative SDK** | Google GenAI | Highspeed multimodal LLM queries (Gemini 2.5 Flash) |
 | **Auth** | Google OAuth 2.0 + JWT | Authlib + python-jose |
-| **Database** | MongoDB + Motor | Async document database |
+| **Database** | MongoDB + Motor | Async document database tracking history & metrics |
 | **Parsing** | pdfplumber + regex | PDF text extraction + NLP |
 | **Validation** | Pydantic v2 | Schema validation + serialization |
 
@@ -250,14 +260,14 @@ PDF → Text Extraction (pdfplumber)
 - [x] ATS scoring engine (Rule-based)
 - [x] Premium Glassmorphic UI & ScoreRing
 - [x] Futuristic deep-dive evaluation (Tone, Content, Structure)
+- [x] SaaS Subscription Tier System (Backend enforcement & Frontend UI)
+- [x] Real-time AI Token & Cost Tracking for Fleet Management
+- [x] AI-Powered "Fix-It" Mode for bullet-point optimization (Gemini 2.5 Flash)
 - [x] Resume re-upload with auto-sync
 - [x] Suggested roles from skills
 - [x] Analytics dashboard with performance trends
 - [x] Visitor and login tracking system
-- [ ] LLM-powered semantic analysis (OpenAI / Gemini)
-- [ ] AI-generated resume improvement suggestions
-
----
+- [ ] Payment Gateway Integration (Stripe/Checkout)
 
 ## 🤝 Contributing
 
