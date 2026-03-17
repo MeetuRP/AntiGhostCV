@@ -1,13 +1,15 @@
 import React from 'react';
+import { Link } from 'react-router';
 import type { UserUsage, PlanLimits } from '../../types';
 
 interface UsageStatsCardProps {
     usage: UserUsage;
     limits: PlanLimits;
     aiUsage?: any; // Added to support AI tracking
+    currentPlan?: string;
 }
 
-const UsageStatsCard: React.FC<UsageStatsCardProps> = ({ usage, limits, aiUsage }) => {
+const UsageStatsCard: React.FC<UsageStatsCardProps> = ({ usage, limits, aiUsage, currentPlan = "starter" }) => {
     const stats = [
         {
             label: "Evaluations",
@@ -61,7 +63,7 @@ const UsageStatsCard: React.FC<UsageStatsCardProps> = ({ usage, limits, aiUsage 
                     </div>
                     <div className="flex flex-col items-end">
                         <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Plan Tier</span>
-                        <span className="text-sm font-black text-slate-800">STARTER v1.0</span>
+                        <span className="text-sm font-black text-slate-800 uppercase">{currentPlan.replace('_', ' ')} v1.0</span>
                     </div>
                 </div>
 
@@ -142,11 +144,11 @@ const UsageStatsCard: React.FC<UsageStatsCardProps> = ({ usage, limits, aiUsage 
                             Limits reset on the 1st of every month automatically.
                         </p>
                     </div>
-                    <button className="group/btn relative px-8 py-3 bg-slate-900 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest overflow-hidden transition-all hover:pr-10">
+                    <Link to="/pricing" className="group/btn relative px-8 py-3 bg-slate-900 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest overflow-hidden transition-all hover:pr-10">
                         <span className="relative z-10">Upgrade Plan</span>
                         <span className="absolute right-4 opacity-0 -translate-x-2 transition-all group-hover/btn:opacity-100 group-hover/btn:translate-x-0">→</span>
                         <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-violet-600 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
-                    </button>
+                    </Link>
                 </div>
             </div>
         </div>

@@ -142,7 +142,7 @@ const Home = () => {
                                 <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Resource Overhead</p>
                             </div>
                             {user?.usage && user?.plan_limits && (
-                                <UsageStatsCard usage={user.usage} limits={user.plan_limits} aiUsage={user.ai_usage} />
+                                <UsageStatsCard usage={user.usage} limits={user.plan_limits} aiUsage={user.ai_usage} currentPlan={user.plan} />
                             )}
                         </div>
 

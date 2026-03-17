@@ -1,14 +1,21 @@
 import { motion } from 'framer-motion';
-import { Link } from 'react-router';
+import { useNavigate } from 'react-router';
+import { useAuthStore } from '../../lib/auth';
+import api from '../../lib/api';
+import { useState } from 'react';
 
 const PricingSection = () => {
+    const { isAuthenticated, checkAuth } = useAuthStore();
+    const navigate = useNavigate();
+    const [isUpgrading, setIsUpgrading] = useState(false);
     const plans = [
         {
+            id: "starter",
             name: "Starter",
             price: "Free",
             features: [
                 "2 Resume Scans",
-                "Basic ATS Analysis",
+                "5 Fix-It AI Uses",
                 "Community Templates",
                 "Score History"
             ],
@@ -16,11 +23,12 @@ const PricingSection = () => {
             highlight: false
         },
         {
+            id: "24_hour_pass",
             name: "24 Hour Pass",
             price: "₹99",
             features: [
-                "50 Resume Scans",
-                "50 Fix-It AI Uses",
+                "10 Resume Scans",
+                "20 Fix-It AI Uses",
                 "All Templates",
                 "Valid for 24 Hours"
             ],
@@ -28,11 +36,12 @@ const PricingSection = () => {
             highlight: false
         },
         {
+            id: "season_pass",
             name: "Season Pass",
             price: "₹299",
             features: [
-                "500 Resume Scans",
-                "500 Fix-It AI Uses",
+                "50 Resume Scans",
+                "100 Fix-It AI Uses",
                 "Priority Support",
                 "Valid for 90 Days"
             ],
@@ -40,6 +49,7 @@ const PricingSection = () => {
             highlight: true
         },
         {
+            id: "premium",
             name: "Premium",
             price: "₹749",
             features: [
@@ -52,6 +62,26 @@ const PricingSection = () => {
             highlight: false
         }
     ];
+
+    const handleUpgrade = async (planId: string) => {
+        if (!isAuthenticated) {
+            navigate('/auth?mode=signup');
+            return;
+        }
+
+        setIsUpgrading(true);
+        try {
+            await api.post('/user/upgrade-plan', { plan: planId });
+            await checkAuth();
+            alert("Your plan has been upgraded successfully!");
+            navigate('/dashboard');
+        } catch (error) {
+            console.error("Upgrade failed:", error);
+            alert("Failed to upgrade plan. Please try again.");
+        } finally {
+            setIsUpgrading(false);
+        }
+    };
 
     return (
         <section id="pricing" className="py-32 bg-white">
@@ -105,16 +135,17 @@ const PricingSection = () => {
                                 ))}
                             </ul>
 
-                            <Link 
-                                to="/auth?mode=signup"
+                            <button 
+                                onClick={() => handleUpgrade(plan.id)}
+                                disabled={isUpgrading}
                                 className={`w-full block text-center py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${
                                     plan.highlight 
                                     ? "bg-indigo-600 text-white shadow-xl shadow-indigo-600/20 hover:bg-indigo-700" 
                                     : "bg-slate-900 text-white hover:bg-slate-800"
-                                }`}
+                                } ${isUpgrading ? "opacity-70 cursor-not-allowed" : ""}`}
                             >
-                                {plan.cta}
-                            </Link>
+                                {isUpgrading ? "Processing..." : isAuthenticated ? "Select Plan" : plan.cta}
+                            </button>
                         </motion.div>
                     ))}
                 </div>

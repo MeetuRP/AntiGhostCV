@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from .database import connect_to_mongo, close_mongo_connection
 from .config import settings
-from .routes import auth, resume, analysis, admin, events, export, evaluations
+from .routes import auth, resume, analysis, admin, events, export, evaluations, user
 
 app = FastAPI(title="AntiGhost CV AI API")
 
@@ -47,6 +47,7 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(events.router, prefix="/api/events", tags=["Events"])
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
 app.include_router(evaluations.router, prefix="/api/evaluations", tags=["Evaluations"])
+app.include_router(user.router, prefix="/api/user", tags=["User"])
 
 @app.get("/")
 async def root():
