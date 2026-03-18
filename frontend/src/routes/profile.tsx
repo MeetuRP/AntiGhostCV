@@ -123,7 +123,7 @@ const Profile = () => {
         <main className="bg-[url('/images/bg-main.svg')] bg-cover min-h-screen">
             <Navbar />
             <div className="max-w-6xl mx-auto px-4 py-4 space-y-6">
-                <Link to="/" className="inline-flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors group">
+                <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors group">
                     <svg className="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                     </svg>
@@ -153,7 +153,17 @@ const Profile = () => {
 
                         {/* Name & Contact */}
                         <div className="flex-grow text-center md:text-left">
-                            <h1 className="text-3xl font-extrabold text-gray-900">{profile.name}</h1>
+                            <div className="flex flex-col md:flex-row items-center gap-3">
+                                <h1 className="text-3xl font-extrabold text-gray-900">{profile.name}</h1>
+                                <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border shadow-sm ${
+                                    profile.plan === 'premium' ? 'bg-amber-100/50 text-amber-700 border-amber-200' :
+                                    profile.plan === 'season_pass' ? 'bg-fuchsia-100/50 text-fuchsia-700 border-fuchsia-200' :
+                                    profile.plan === '24_hour_pass' ? 'bg-blue-100/50 text-blue-700 border-blue-200' :
+                                    'bg-slate-100/80 text-slate-600 border-slate-200'
+                                }`}>
+                                    {(profile.plan || 'Starter').replace(/_/g, ' ')} Plan
+                                </span>
+                            </div>
                             <p className="text-indigo-600 font-medium mt-1">{profile.email}</p>
                             {profile.bio && <p className="text-gray-500 mt-2 text-sm">{profile.bio}</p>}
 

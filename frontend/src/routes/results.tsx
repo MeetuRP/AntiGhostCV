@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import api from "../lib/api";
 import Summary from "../components/Summary";
 import ATS from "../components/ATS";
@@ -13,6 +13,7 @@ type PanelView = "original" | "template";
 
 const Results = () => {
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
     const rawAnalysisId = searchParams.get('analysisId');
     const analysisId = (rawAnalysisId && rawAnalysisId !== "undefined" && rawAnalysisId !== "null") ? rawAnalysisId : null;
     const rawEvaluationId = searchParams.get('evaluationId');
@@ -163,12 +164,12 @@ const Results = () => {
         <main className="h-screen flex flex-col bg-[url('/images/bg-main.svg')] bg-cover overflow-hidden">
             {/* Nav */}
             <nav className="flex items-center justify-between px-10 py-4 bg-white/40 backdrop-blur-xl border-b border-white/40 sticky top-0 z-50 gap-4">
-                <Link to="/" className="flex items-center gap-2 text-slate-700 hover:text-indigo-600 transition-all font-bold group shrink-0">
+                <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-700 hover:text-indigo-600 transition-all font-bold group shrink-0">
                     <div className="w-8 h-8 rounded-full bg-white/50 backdrop-blur-sm flex items-center justify-center group-hover:bg-indigo-50 transition-colors border border-white/50">
                         <img src="/icons/back.svg" alt="back" className="w-4 h-4" />
                     </div>
-                    <span className="text-sm">Dashboard</span>
-                </Link>
+                    <span className="text-sm">Back</span>
+                </button>
                 <h1 className="text-xl font-black text-slate-900 tracking-tight truncate">
                     Evaluation: <span className="text-indigo-600">{analysis.job_title}</span>
                 </h1>
