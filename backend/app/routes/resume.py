@@ -60,10 +60,6 @@ async def upload_resume(
     # Log upload event for admin analytics
     from ..services.events import log_event
     await log_event("resume_upload", user_id=str(current_user.id))
-    
-    # Increment scan usage
-    from ..services.usage import increment_user_usage
-    await increment_user_usage(str(current_user.id), "jd_scans_used")
 
     # ============================================================
     # AUTO-SYNC: Populate user profile from parsed resume data
@@ -195,3 +191,35 @@ async def update_template(resume_id: str, body: TemplateUpdate, current_user: Us
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Resume not found")
     return {"status": "success", "selected_template": body.template_id}
+
+
+@router.post("/reparse/{resume_id}")
+async def reparse_resume(resume_id: str, current_user: UserModel = Depends(get_current_user)):
+    """Re-run the parser on an existing resume PDF to update structured data with latest parser improvements."""
+    db = get_db()
+    resume = await db.resumes.find_one({
+        "_id": ObjectId(resume_id),
+        "user_id": str(current_user.id)
+    })
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    file_path = resume.get("file_path")
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Resume file not found on server")
+    
+    try:
+        structured_json = ResumeParser.extract_structured_resume(file_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Re-parse failed: {str(e)}")
+    
+    await db.resumes.update_one(
+        {"_id": ObjectId(resume_id)},
+        {"$set": {
+            "structured_resume_json": structured_json,
+            "optimized_resume_json": structured_json,
+        }}
+    )
+    
+    return {"status": "success", "structured_resume": structured_json}
+

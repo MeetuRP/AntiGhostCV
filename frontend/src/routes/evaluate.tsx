@@ -58,7 +58,9 @@ const Evaluate = () => {
             navigate(`/results?analysisId=${res.data.id}`);
         } catch (err: any) {
             console.error("Evaluation failed", err);
-            setError(err?.response?.data?.detail || "Evaluation failed. Please try again.");
+            const detail = err?.response?.data?.detail;
+            const msg = typeof detail === 'object' ? detail.message : (detail || "Evaluation failed. Please try again.");
+            setError(msg);
             setIsAnalyzing(false);
         }
     };

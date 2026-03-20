@@ -15,8 +15,8 @@ async def evaluate_resume(
     job_description: str,
     current_user: UserModel = Depends(get_current_user)
 ):
-    # Enforce JD Scan limits
-    if current_user.usage.jd_scans_used >= current_user.plan_limits.jd_scans:
+    # Enforce JD Scan limits (-1 means unlimited)
+    if current_user.plan_limits.jd_scans != -1 and current_user.usage.jd_scans_used >= current_user.plan_limits.jd_scans:
         raise HTTPException(
             status_code=403, 
             detail={"message": "Your plan limit has been reached", "upgrade_required": True}
@@ -188,8 +188,8 @@ class ImproveLineRequest(BaseModel):
 
 @router.post("/improve-line")
 async def improve_line(req: ImproveLineRequest, current_user: UserModel = Depends(get_current_user)):
-    # Enforce Fix-It uses limits
-    if current_user.usage.fix_it_used >= current_user.plan_limits.fix_it_uses:
+    # Enforce Fix-It uses limits (-1 means unlimited)
+    if current_user.plan_limits.fix_it_uses != -1 and current_user.usage.fix_it_used >= current_user.plan_limits.fix_it_uses:
         raise HTTPException(
             status_code=403, 
             detail={"message": "Your plan limit has been reached", "upgrade_required": True}
@@ -210,8 +210,8 @@ class OptimizeResumeRequest(BaseModel):
 
 @router.post("/optimize-resume")
 async def optimize_resume(req: OptimizeResumeRequest, current_user: UserModel = Depends(get_current_user)):
-    # Enforce Fix-It uses limits
-    if current_user.usage.fix_it_used >= current_user.plan_limits.fix_it_uses:
+    # Enforce Fix-It uses limits (-1 means unlimited)
+    if current_user.plan_limits.fix_it_uses != -1 and current_user.usage.fix_it_used >= current_user.plan_limits.fix_it_uses:
         raise HTTPException(
             status_code=403, 
             detail={"message": "Your plan limit has been reached", "upgrade_required": True}

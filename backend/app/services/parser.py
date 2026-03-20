@@ -3,40 +3,49 @@ import re
 from typing import List, Dict, Optional, Any
 from ..models import ExtractedData
 
-# Enhanced skills list with modern tech stack
-SKILLS_DB = [
-    # Programming Languages
-    "Python", "JavaScript", "TypeScript", "Java", "C++", "C#", "C", "SQL", "Go", "Rust", "Swift", "PHP",
-    "Kotlin", "Ruby", "Scala", "Perl", "R", "MATLAB", "Dart", "Solidity", "Bash", "Shell", "PowerShell",
-    # AI/ML & Data
-    "Machine Learning", "Deep Learning", "LLM", "RAG", "LangChain", "Agentic AI", "NLP",
-    "Computer Vision", "Model Deployment", "Data Analysis", "Data Science", "Data Engineering",
-    "Vector Databases", "FAISS", "ChromaDB", "Pinecone", "Neural Networks",
-    "Reinforcement Learning", "Transfer Learning", "Feature Engineering", "Prompt Engineering",
-    "Fine-tuning", "Embeddings", "OpenCV",
-    # Libraries & Frameworks
-    "FastAPI", "Flask", "Django", "React", "Next.js", "Vue", "Angular", "Express",
-    "Spring Boot", "Node.js", ".NET", "Rails", "Laravel",
-    "NumPy", "Pandas", "Matplotlib", "Scikit-learn", "PyTorch", "TensorFlow",
-    "Hugging Face", "OpenAI API", "Keras", "NLTK", "spaCy",
-    "Selenium", "Beautiful Soup", "Scrapy", "Celery",
-    # Databases
-    "MongoDB", "PostgreSQL", "MySQL", "Redis", "SQLite", "Firebase", "DynamoDB",
-    "Cassandra", "Neo4j", "Elasticsearch", "Supabase",
-    # Tools & DevOps
-    "Docker", "Kubernetes", "AWS", "Azure", "GCP", "Linux", "Nginx",
-    "Git", "GitHub", "GitLab", "CI/CD", "Jenkins", "Terraform", "Ansible",
-    "Power BI", "Tableau", "Grafana", "Prometheus",
-    # Web Technologies
-    "REST API", "GraphQL", "WebSocket", "gRPC", "Streamlit", "Vercel",
-    "HTML", "CSS", "SASS", "Tailwind CSS", "Bootstrap",
-    # Mobile
-    "React Native", "Flutter", "Android", "iOS", "SwiftUI",
-    # Other
-    "Agile", "Scrum", "JIRA", "Figma", "Photoshop", "Canva",
-    "Blockchain", "Web3", "Microservices", "System Design",
-    "STT", "TTS", "Speech Recognition", "Text-to-Speech",
-]
+SKILLS_CAT_DB = {
+    "Programming Languages": [
+        "Python", "JavaScript", "TypeScript", "Java", "C++", "C#", "C", "SQL", "Go", "Rust", "Swift", "PHP",
+        "Kotlin", "Ruby", "Scala", "Perl", "R", "MATLAB", "Dart", "Solidity", "Bash", "Shell", "PowerShell"
+    ],
+    "AI / ML": [
+        "Machine Learning", "Deep Learning", "LLM", "RAG", "LangChain", "Agentic AI", "NLP",
+        "Computer Vision", "Model Deployment", "Data Analysis", "Data Science", "Data Engineering",
+        "Vector Databases", "FAISS", "ChromaDB", "Pinecone", "Neural Networks",
+        "Reinforcement Learning", "Transfer Learning", "Feature Engineering", "Prompt Engineering",
+        "Fine-tuning", "Embeddings", "OpenCV"
+    ],
+    "Frameworks & Libraries": [
+        "FastAPI", "Flask", "Django", "React", "Next.js", "Vue", "Angular", "Express",
+        "Spring Boot", "Node.js", ".NET", "Rails", "Laravel",
+        "NumPy", "Pandas", "Matplotlib", "Scikit-learn", "PyTorch", "TensorFlow",
+        "Hugging Face", "OpenAI API", "Keras", "NLTK", "spaCy",
+        "Selenium", "Beautiful Soup", "Scrapy", "Celery"
+    ],
+    "Databases": [
+        "MongoDB", "PostgreSQL", "MySQL", "Redis", "SQLite", "Firebase", "DynamoDB",
+        "Cassandra", "Neo4j", "Elasticsearch", "Supabase"
+    ],
+    "Tools & DevOps": [
+        "Docker", "Kubernetes", "AWS", "Azure", "GCP", "Linux", "Nginx",
+        "Git", "GitHub", "GitLab", "CI/CD", "Jenkins", "Terraform", "Ansible",
+        "Power BI", "Tableau", "Grafana", "Prometheus"
+    ],
+    "Web Technologies": [
+        "REST API", "GraphQL", "WebSocket", "gRPC", "Streamlit", "Vercel",
+        "HTML", "CSS", "SASS", "Tailwind CSS", "Bootstrap"
+    ],
+    "Mobile & Other": [
+        "React Native", "Flutter", "Android", "iOS", "SwiftUI",
+        "Agile", "Scrum", "JIRA", "Figma", "Photoshop", "Canva",
+        "Blockchain", "Web3", "Microservices", "System Design",
+        "STT", "TTS", "Speech Recognition", "Text-to-Speech"
+    ]
+}
+
+SKILLS_DB = []
+for skills in SKILLS_CAT_DB.values():
+    SKILLS_DB.extend(skills)
 
 ROLE_MAP = {
     "Frontend Developer": ["React", "Vue", "Angular", "Next.js", "HTML", "CSS", "JavaScript", "TypeScript", "Tailwind CSS"],
@@ -66,9 +75,9 @@ class ResumeParser:
         full_text_lines = []
         with pdfplumber.open(file_path) as pdf:
             for page in pdf.pages:
-                # Use extract_words() for accurate word spacing
+                # Use extract_words() with tighter tolerance to prevent word concatenation
                 words = page.extract_words(
-                    x_tolerance=3,
+                    x_tolerance=1.5,
                     y_tolerance=3,
                     keep_blank_chars=False,
                     use_text_flow=True,
@@ -96,8 +105,9 @@ class ResumeParser:
                         else:
                             prev = line_words[i - 1]
                             gap = word['x0'] - prev['x1']
-                            # If gap > 8px, treat as a word space
-                            sep = " " if gap > 1 else " "
+                            # If gap > 1px, treat as a word space; if very small, it's the same word
+                            # This fixes 'PythonforEverybody' concatenation
+                            sep = " " if gap > 1.0 else ""
                             reconstructed += sep + word['text']
                     full_text_lines.append(reconstructed)
 
@@ -217,6 +227,31 @@ class ResumeParser:
                     links["other"].append(href)
 
         return links
+
+    @staticmethod
+    def extract_skills_categorized(text: str) -> Dict[str, List[str]]:
+        """
+        Extract categorized skills by finding all matching skills 
+        and bucketing them according to SKILLS_CAT_DB.
+        This flawlessly handles 2-column PDFs where Regex line matching breaks.
+        """
+        categories: Dict[str, List[str]] = {}
+        
+        # 1. First find all skills exactly like flat extract_skills does
+        found_skills = ResumeParser.extract_skills(text)
+        skills_lower = {s.lower() for s in found_skills}
+        
+        # 2. Bucket them into predefined categories
+        for category, cat_skills in SKILLS_CAT_DB.items():
+            matched_for_cat = []
+            for s in cat_skills:
+                if s.lower() in skills_lower:
+                    matched_for_cat.append(s)
+            
+            if matched_for_cat:
+                categories[category] = matched_for_cat
+                
+        return categories
 
     @staticmethod
     def extract_skills(text: str) -> List[str]:
@@ -399,6 +434,10 @@ class ResumeParser:
             "VOLUNTEERING": [
                 "volunteering", "volunteer", "community service", "extracurricular"
             ],
+            "SKILLS": [
+                "technical skills", "skills", "core competencies", "key skills",
+                "technologies", "tools & technologies", "tech stack"
+            ],
         }
 
         extracted: Dict[str, List[str]] = {k: [] for k in sections_config}
@@ -429,8 +468,12 @@ class ResumeParser:
                 e = len(text)
 
             chunk = text[s:e]
-            chunk_lines = chunk.split('\n')
-            content = '\n'.join(chunk_lines[1:])  # skip the header line itself
+            chunk_lines = [l.strip() for l in chunk.split('\n') if l.strip()]
+            
+            # Skip lines that are just the section header itself
+            header_keywords = [k.lower() for k in sections_config[section_name]]
+            content_lines = [l for l in chunk_lines if l.lower() not in header_keywords]
+            content = '\n'.join(content_lines)
 
             if section_name in extracted and len(content.strip()) > 5:
                 entries = ResumeParser.split_section_entries(content, section_type=section_name)
@@ -475,6 +518,7 @@ class ResumeParser:
 
         links = ResumeParser.extract_links(text, hyperlinks)
         skills = ResumeParser.extract_skills(text)
+        skills_categorized = ResumeParser.extract_skills_categorized(text)
         sections = ResumeParser.extract_sections(text)
         suggested_roles = ResumeParser.suggest_roles(skills)
         summary = ResumeParser.extract_summary(text, name)
@@ -487,10 +531,11 @@ class ResumeParser:
             "links": links,
             "hyperlinks": hyperlinks,
             "skills": skills,
-            "experience": sections["EXPERIENCE"],
-            "education": sections["EDUCATION"],
-            "projects": sections["PROJECTS"],
-            "certifications": sections["CERTIFICATIONS"],
+            "skills_categorized": skills_categorized,
+            "experience": sections.get("EXPERIENCE", []),
+            "education": sections.get("EDUCATION", []),
+            "projects": sections.get("PROJECTS", []),
+            "certifications": sections.get("CERTIFICATIONS", []),
             "publications": sections.get("PUBLICATIONS", []),
             "volunteering": sections.get("VOLUNTEERING", []),
             "suggested_roles": suggested_roles,

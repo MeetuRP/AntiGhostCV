@@ -34,6 +34,14 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_db_client():
     await connect_to_mongo()
+    # Preload AI models at startup so the first evaluation is fast
+    try:
+        from sentence_transformers import SentenceTransformer
+        from .routes import analysis
+        analysis.router.st_model = SentenceTransformer('all-MiniLM-L6-v2')
+        print("[Startup] SentenceTransformer model preloaded successfully.")
+    except Exception as e:
+        print(f"[Startup] Warning: Could not preload SentenceTransformer: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

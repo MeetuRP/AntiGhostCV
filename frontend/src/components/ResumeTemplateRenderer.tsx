@@ -30,6 +30,7 @@ export interface StructuredResume {
     };
     hyperlinks?: { text: string; url: string }[];
     skills?: string[];
+    skills_categorized?: Record<string, string[]>;
     experience?: string[];
     education?: string[];
     projects?: string[];
@@ -479,12 +480,24 @@ const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: str
             </>
         )}
 
-        {data.skills && data.skills.length > 0 && (
+        {(data.skills_categorized && Object.keys(data.skills_categorized).length > 0) ? (
+            <>
+                <Sec style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: '#3730a3', textTransform: 'uppercase' }}>Technical Skills</Sec>
+                <div style={{ fontSize: 12, lineHeight: 1.9, ...WRAP_STYLE }}>
+                    {Object.entries(data.skills_categorized).map(([category, items], i) => (
+                        <div key={i} style={{ marginBottom: 3 }}>
+                            <span style={{ fontWeight: 700 }}>{category}:</span>{' '}
+                            <span>{items.join(', ')}</span>
+                        </div>
+                    ))}
+                </div>
+            </>
+        ) : data.skills && data.skills.length > 0 ? (
             <>
                 <Sec style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: '#3730a3', textTransform: 'uppercase' }}>Skills</Sec>
                 <p style={{ fontSize: 12, lineHeight: 1.8, ...WRAP_STYLE }}>{data.skills.join(' · ')}</p>
             </>
-        )}
+        ) : null}
 
         {data.projects && data.projects.length > 0 && (
             <>
@@ -496,7 +509,14 @@ const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: str
         {data.certifications && data.certifications.length > 0 && (
             <>
                 <Sec style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: '#3730a3', textTransform: 'uppercase' }}>Certifications</Sec>
-                {data.certifications.map((c, i) => <BulletItem key={i} text={c} section="certifications" jobDescription={jd} onApply={(t) => onApply('certifications', i, t)} bulletColor="#3730a3" textStyle={{ fontSize: 12.5 }} />)}
+                <div style={{ fontSize: 12, lineHeight: 1.8, ...WRAP_STYLE }}>
+                    {data.certifications.map((c, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
+                            <span style={{ color: '#3730a3', fontSize: '0.7em', flexShrink: 0 }}>■</span>
+                            <span style={{ fontWeight: 500 }}>{c}</span>
+                        </div>
+                    ))}
+                </div>
             </>
         )}
 

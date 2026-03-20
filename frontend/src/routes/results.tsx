@@ -44,7 +44,23 @@ const Results = () => {
         setLoadingStructured(true);
         try {
             const structRes = await api.get(`/resume/structured/${resumeId}`);
-            setStructuredResume(structRes.data.structured_resume);
+            let structured = structRes.data.structured_resume;
+            
+            // Auto-reparse if skills_categorized is missing or empty (old parser data)
+            const needsReparse = !structured || 
+                !structured.skills_categorized || 
+                Object.keys(structured.skills_categorized).length === 0;
+                
+            if (needsReparse) {
+                try {
+                    const reparseRes = await api.post(`/resume/reparse/${resumeId}`);
+                    structured = reparseRes.data.structured_resume;
+                } catch (e) {
+                    console.warn("Auto-reparse failed, using existing data:", e);
+                }
+            }
+            
+            setStructuredResume(structured);
             setSelectedTemplate(structRes.data.selected_template || "modern-ats");
         } catch (e) {
             console.error("Structured resume not available:", e);

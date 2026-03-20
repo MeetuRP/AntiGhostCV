@@ -139,14 +139,19 @@ const FixItOverlay: React.FC<FixItOverlayProps> = ({ items, styles, viewport, jo
                 score: res.data.impact_score,
                 suggestions: res.data.suggestions || []
             });
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to improve line:", err);
-            // Default fallback if backend is slow/fails
+            // If it's a plan limit error, don't show a fake suggestion — let the global interceptor handle it
+            if (err?.response?.status === 403 && err?.response?.data?.detail?.upgrade_required) {
+                // The global 403 interceptor in home.tsx will trigger the UpgradeModal
+                return;
+            }
+            // Generic failure fallback
             setSuggestion({
                 index,
-                text: "Optimized: " + text,
-                score: 8,
-                suggestions: ["Add quantifiable metrics.", "Align with key job requirements."]
+                text: "AI generation failed. Please try again.",
+                score: 0,
+                suggestions: ["Check your internet connection.", "The AI service may be temporarily unavailable."]
             });
         } finally {
             setLoadingIndex(null);

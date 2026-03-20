@@ -6,7 +6,7 @@ const Navbar = () => {
 
     return (
         <nav className="navbar">
-            <Link to="/">
+            <Link to={isAuthenticated ? "/dashboard" : "/"}>
                 <p className="text-2xl font-bold text-gradient uppercase tracking-widest">AntiGhost CV</p>
             </Link>
             <div className="flex items-center gap-4">
