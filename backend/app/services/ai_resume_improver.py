@@ -103,9 +103,19 @@ Return JSON (and ONLY JSON) in the following format:
                 suggestions=data.get("suggestions", [])
             )
         except Exception as e:
+            error_str = str(e).lower()
             print(f"Gemini AI Error: {e}")
+            
+            # Specific check for quota/rate limit errors
+            if "429" in error_str or "quota" in error_str or "resource_exhausted" in error_str:
+                return ImprovementResponse(
+                    improved_text="QUOTA_EXCEEDED: Daily AI Limit reached. Please try again later.",
+                    impact_score=0,
+                    suggestions=[]
+                )
+
             # If 2.5-flash fails because it's too new/unavailable, try 2.0-flash or 1.5-flash as fallback to keep app running
-            if "not found" in str(e).lower() or "not supported" in str(e).lower():
+            if "not found" in error_str or "not supported" in error_str:
                 try:
                     print("Attempting fallback to gemini-2.0-flash...")
                     def call_fallback():
@@ -120,10 +130,12 @@ Return JSON (and ONLY JSON) in the following format:
 
                     # Track Token Usage for Fallback
                     if user_id and response.usage_metadata:
-                        from .usage import update_ai_usage
-                        input_tokens = response.usage_metadata.prompt_token_count or 0
-                        output_tokens = response.usage_metadata.candidates_token_count or 0
-                        asyncio.create_task(update_ai_usage(user_id, input_tokens, output_tokens))
+                        try:
+                            from .usage import update_ai_usage
+                            input_tokens = response.usage_metadata.prompt_token_count or 0
+                            output_tokens = response.usage_metadata.candidates_token_count or 0
+                            asyncio.create_task(update_ai_usage(user_id, input_tokens, output_tokens))
+                        except: pass
 
                     data = json.loads(response.text)
                     return ImprovementResponse(
@@ -133,6 +145,12 @@ Return JSON (and ONLY JSON) in the following format:
                     )
                 except Exception as e2:
                     print(f"Gemini Fallback Error: {e2}")
+                    if "429" in str(e2).lower() or "quota" in str(e2).lower():
+                        return ImprovementResponse(
+                            improved_text="QUOTA_EXCEEDED: Daily AI Limit reached. Please try again later.",
+                            impact_score=0,
+                            suggestions=[]
+                        )
 
             return ImprovementResponse(
                 improved_text="AI improvement unavailable. Please check your API key and quota.",

@@ -8,6 +8,8 @@ import ResumeViewer from "../components/ResumeViewer";
 import ResumeTemplateRenderer, { TemplatePicker, type TemplateId, type StructuredResume, TEMPLATES } from "../components/ResumeTemplateRenderer";
 import type { AnalysisResult, UnifiedFeedback } from "../types";
 import { motion, AnimatePresence } from "framer-motion";
+import ScorePopup from "../components/ScorePopup";
+import ScoreProgress from "../components/ScoreProgress";
 
 type PanelView = "original" | "template";
 
@@ -20,6 +22,7 @@ const Results = () => {
     const evaluationId = (rawEvaluationId && rawEvaluationId !== "undefined" && rawEvaluationId !== "null") ? rawEvaluationId : null;
 
     const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+    const [loading, setLoading] = useState(true);
     const [resumeUrl, setResumeUrl] = useState<string | null>(null);
     const [isExporting, setIsExporting] = useState(false);
 
@@ -30,9 +33,18 @@ const Results = () => {
     const [showUpgradeBanner, setShowUpgradeBanner] = useState(true);
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
     const [loadingStructured, setLoadingStructured] = useState(false);
+    
+    // Feedback System State
+    const [initialScore, setInitialScore] = useState<number | null>(null);
+    const [scoreHistory, setScoreHistory] = useState<number[]>([]);
+    const [scoreToast, setScoreToast] = useState<{ score: number, added: number, impact: 'Low' | 'Medium' | 'High' } | null>(null);
 
     // Helper to load resume viewer + template engine for a given resume_id
     const loadResumeAssets = async (resumeId: string) => {
+        if (!resumeId || resumeId === "undefined" || resumeId === "null") {
+            console.warn("loadResumeAssets: Invalid resumeId provided");
+            return;
+        }
         try {
             const resBlob = await api.get(`/resume/view/${resumeId}`, { responseType: 'blob' });
             const url = URL.createObjectURL(new Blob([resBlob.data], { type: 'application/pdf' }));
@@ -84,12 +96,16 @@ const Results = () => {
                         job_title: ev.job_title,
                         job_description: ev.job_description,
                         ats_score: ev.ats_score,
+                        initial_score: ev.initial_score,
                         skills_matched: ev.skills_matched || [],
                         missing_skills: ev.missing_skills || [],
                         summary: ev.summary || "",
                         suggestions: ev.suggestions || [],
                         created_at: ev.created_at,
                     });
+                    if (initialScore === null) {
+                        setInitialScore(ev.initial_score || ev.ats_score);
+                    }
                     await loadResumeAssets(ev.resume_id);
                     return;
                 }
@@ -105,10 +121,20 @@ const Results = () => {
 
                 if (item) {
                     setAnalysis(item);
+                    if (initialScore === null) {
+                        setInitialScore(item.initial_score || item.ats_score);
+                    }
                     await loadResumeAssets(item.resume_id);
+                } else {
+                    console.error("Evaluation ID was parsed but no matching item found in history arrays.");
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Failed to fetch results", err);
+                if (err.response && err.response.status === 404) {
+                     setAnalysis(null);
+                }
+            } finally {
+                setLoading(false);
             }
         };
         fetchResults();
@@ -148,29 +174,47 @@ const Results = () => {
         }
     };
 
-    if (!analysis) return <div className="p-10 text-center text-slate-500">Loading Results...</div>;
+    if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-10"><div className="text-2xl font-black text-slate-400 animate-pulse">Scanning Analytics Database...</div></div>;
+    if (!analysis) return (
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-10 text-center">
+            <h1 className="text-6xl mb-4">📭</h1>
+            <h2 className="text-3xl font-black text-slate-800 mb-2">Evaluation Not Found (404)</h2>
+            <p className="text-slate-500 max-w-md">The requested Evaluation ID (<code className="bg-slate-200 px-2 py-0.5 rounded text-indigo-600">{evaluationId}</code>) does not exist in your MongoDB Database. It may have been deleted.</p>
+            <button onClick={() => navigate('/dashboard')} className="mt-8 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95">Go to Dashboard</button>
+        </div>
+    );
+
+    // Dynamic sub-scores derived from ATS score to show holistic growth
+    const s_ats = analysis.ats_score || 0;
+    const s_skills = s_ats;
+    const s_tone = Math.min(96, 72 + Math.floor(s_ats / 5));
+    const s_struct = Math.min(98, 88 + Math.floor(s_ats / 15));
+    const s_overall = Math.floor((s_ats + s_skills + s_tone + s_struct) / 4);
 
     const feedback: UnifiedFeedback = {
-        overallScore: analysis.ats_score,
+        overallScore: s_overall,
         ATS: {
-            score: analysis.ats_score,
-            tips: analysis.suggestions.filter(s => !s.toLowerCase().includes('skill')).map(s => ({ type: s.includes('match') || s.includes('Good') ? 'good' : 'improve', tip: s }))
+            score: s_ats,
+            tips: (analysis.suggestions || []).filter(s => s && typeof s === 'string' && !s.toLowerCase().includes('skill')).map(s => ({ type: s.includes('match') || s.includes('Good') ? 'good' : 'improve', tip: s }))
         },
         toneAndStyle: {
-            score: 75,
+            score: s_tone,
             tips: [{ type: 'good', tip: 'Professional and authoritative tone' }, { type: 'good', tip: 'Consistent active voice usage' }]
         },
         content: {
-            score: 82,
+            score: Math.min(95, 78 + Math.floor(s_ats / 8)),
             tips: [{ type: 'good', tip: 'Strong action verbs at beginning of bullets' }, { type: 'improve', tip: 'Quantify more achievements with metrics/data' }]
         },
         structure: {
-            score: 90,
+            score: s_struct,
             tips: [{ type: 'good', tip: 'Standard reverse-chronological layout' }, { type: 'good', tip: 'Clear section headers and separation' }]
         },
         skills: {
-            score: analysis.ats_score,
-            tips: [...analysis.skills_matched.map(s => ({ type: 'good' as const, tip: `Matches: ${s}` })), ...analysis.missing_skills.map(s => ({ type: 'improve' as const, tip: `Missing: ${s}` }))]
+            score: s_skills,
+            tips: [
+                ...(analysis.skills_matched || []).map(s => ({ type: 'good' as const, tip: `Matches: ${s}` })),
+                ...(analysis.missing_skills || []).map(s => ({ type: 'improve' as const, tip: `Missing: ${s}` }))
+            ]
         }
     };
 
@@ -299,12 +343,24 @@ const Results = () => {
                                                 Loading structured resume...
                                             </div>
                                         ) : structuredResume ? (
-                                            <ResumeTemplateRenderer
+                                                                                        <ResumeTemplateRenderer
                                                 data={structuredResume}
                                                 templateId={selectedTemplate}
                                                 resumeId={analysis.resume_id}
                                                 jobDescription={analysis.job_description}
                                                 onDataChange={setStructuredResume}
+                                                onScoreUpdate={(newScore) => {
+                                                    setAnalysis(prev => {
+                                                        if (prev && newScore > prev.ats_score) {
+                                                            const delta = newScore - prev.ats_score;
+                                                            const impact = delta >= 8 ? 'High' : delta >= 5 ? 'Medium' : 'Low';
+                                                            
+                                                            setScoreToast({ score: newScore, added: delta, impact });
+                                                            setScoreHistory(h => [...h, newScore]);
+                                                        }
+                                                        return prev ? { ...prev, ats_score: newScore } : null;
+                                                    });
+                                                }}
                                             />
                                         ) : (
                                             <div className="flex flex-col items-center justify-center h-full text-center p-8 text-slate-400">
@@ -320,8 +376,18 @@ const Results = () => {
                     </div>
                 </section>
 
-                {/* Right Panel – Evaluation */}
-                <section className="flex-1 h-full overflow-y-auto pr-1 custom-scrollbar">
+                <section className="flex-1 h-full overflow-y-auto pr-1 custom-scrollbar relative">
+                    <AnimatePresence>
+                        {scoreToast && (
+                            <ScorePopup 
+                                score={scoreToast.score} 
+                                delta={scoreToast.added} 
+                                impact={scoreToast.impact} 
+                                onClose={() => setScoreToast(null)} 
+                            />
+                        )}
+                    </AnimatePresence>
+                    
                     <div className="space-y-6 pb-12">
                         <div className="glass-card p-8 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-32 -mt-32" />
@@ -329,7 +395,13 @@ const Results = () => {
                             <p className="text-slate-500 text-base font-medium max-w-2xl">
                                 AI analysis complete — matched against <span className="text-indigo-600 font-bold">{analysis.job_title}</span>.
                             </p>
-                            <div className="mt-8">
+                            
+                            <div className="mt-8 space-y-6">
+                                {initialScore !== null && (
+                                    <div className="animate-in slide-in-from-top-4 duration-500">
+                                        <ScoreProgress initialScore={initialScore} currentScore={analysis.ats_score} history={scoreHistory} />
+                                    </div>
+                                )}
                                 <Summary feedback={feedback} />
                             </div>
                         </div>

@@ -114,7 +114,12 @@ class ResumeParser:
                 # Page break marker
                 full_text_lines.append("")
 
-        return "\n".join(full_text_lines)
+        raw_text = "\n".join(full_text_lines)
+        
+        # Clean up CID artifacts from unmapped PDF fonts (typically icons/symbols)
+        cleaned_text = re.sub(r'\(cid:\d+\)', '', raw_text)
+        
+        return cleaned_text
 
     @staticmethod
     def extract_hyperlinks(file_path: str) -> List[Dict[str, str]]:

@@ -31,6 +31,7 @@ export interface AnalysisResult {
     job_title: string;
     job_description: string;
     ats_score: number;
+    initial_score?: number;
     skills_matched: string[];
     missing_skills: string[];
     summary: string;
@@ -114,6 +115,7 @@ export interface EvaluationSummary {
     resume_name: string;
     job_title: string;
     ats_score: number;
+    initial_score?: number;
     summary: string;
     created_at: string;
 }

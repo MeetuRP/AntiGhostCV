@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from .config import settings
-from .database import get_db
+from .database import get_db, to_object_id
 from .models import UserModel
 from bson import ObjectId
 
@@ -26,7 +26,7 @@ async def get_current_user(token: HTTPAuthorizationCredentials = Depends(securit
     if db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
         
-    user_dict = await db.users.find_one({"_id": ObjectId(user_id)})
+    user_dict = await db.users.find_one({"_id": to_object_id(user_id)})
     if not user_dict:
         raise credentials_exception
     

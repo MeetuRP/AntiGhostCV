@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from ..middleware import get_current_user
 from ..models import UserModel, AnalysisResultModel, ResumeModel
-from ..database import get_db
+from ..database import get_db, to_object_id
 from bson import ObjectId
 import re
 
@@ -13,10 +13,11 @@ async def evaluate_resume(
     resume_id: str,
     job_title: str,
     job_description: str,
+    is_onboarding: bool = False,
     current_user: UserModel = Depends(get_current_user)
 ):
     # Enforce JD Scan limits (-1 means unlimited)
-    if current_user.plan_limits.jd_scans != -1 and current_user.usage.jd_scans_used >= current_user.plan_limits.jd_scans:
+    if not is_onboarding and current_user.plan_limits.jd_scans != -1 and current_user.usage.jd_scans_used >= current_user.plan_limits.jd_scans:
         raise HTTPException(
             status_code=403, 
             detail={"message": "Your plan limit has been reached", "upgrade_required": True}
@@ -26,7 +27,7 @@ async def evaluate_resume(
     
     # Get resume
     resume_data = await db.resumes.find_one({
-        "_id": ObjectId(resume_id),
+        "_id": to_object_id(resume_id),
         "user_id": str(current_user.id)
     })
     
@@ -111,6 +112,7 @@ async def evaluate_resume(
         job_title=job_title,
         job_description=job_description,
         ats_score=ats_score,
+        initial_score=ats_score, # Track the start of the journey
         skills_matched=jd_skills_matched,
         missing_skills=jd_missing_skills,
         summary=f"Your resume has a {ats_score}% match with the {job_title} position.",
@@ -134,6 +136,7 @@ async def evaluate_resume(
         job_title=job_title,
         job_description=job_description,
         ats_score=ats_score,
+        initial_score=ats_score, # Track the start of the journey
         skills_matched=jd_skills_matched,
         missing_skills=jd_missing_skills,
         summary=analysis.summary,
@@ -149,10 +152,11 @@ async def evaluate_resume(
     from ..services.events import log_event
     await log_event("score_check", user_id=str(current_user.id), metadata={"job_title": job_title, "ats_score": ats_score})
     
-    # Increment usage counters
-    from ..services.usage import increment_user_usage
-    await increment_user_usage(str(current_user.id), "resume_evaluations")
-    await increment_user_usage(str(current_user.id), "jd_scans_used")
+    # Increment usage counters only if not onboarding
+    if not is_onboarding:
+        from ..services.usage import increment_user_usage
+        await increment_user_usage(str(current_user.id), "resume_evaluations")
+        await increment_user_usage(str(current_user.id), "jd_scans_used")
     
     # Return a plain dict with string 'id' for frontend
     return {
@@ -198,6 +202,12 @@ async def improve_line(req: ImproveLineRequest, current_user: UserModel = Depend
     from ..services.ai_resume_improver import improver_service
     res = await improver_service.improve_line(req.text, req.job_description, req.section, user_id=str(current_user.id))
     
+    if "QUOTA_EXCEEDED" in res.improved_text:
+        raise HTTPException(
+            status_code=429,
+            detail={"message": res.improved_text, "quota_reached": True}
+        )
+
     # Increment usage counter
     from ..services.usage import increment_user_usage
     await increment_user_usage(str(current_user.id), "fix_it_used")
@@ -221,7 +231,7 @@ async def optimize_resume(req: OptimizeResumeRequest, current_user: UserModel = 
     db = get_db()
     
     resume_data = await db.resumes.find_one({
-        "_id": ObjectId(req.resume_id),
+        "_id": to_object_id(req.resume_id),
         "user_id": str(current_user.id)
     })
     
@@ -241,26 +251,85 @@ class SaveEditRequest(BaseModel):
     original_text: str
     improved_text: str
     action: str  # "accept" or "reject"
+    impact_score: int = 0
 
 @router.post("/save-edit")
 async def save_edit(req: SaveEditRequest, current_user: UserModel = Depends(get_current_user)):
     import hashlib
     db = get_db()
     
+    new_score = None
     if req.action == "accept":
-        # Hash text to bypass MongoDB's strict restrictions against periods (.) in dictionary keys
         safe_key = hashlib.md5(req.original_text.encode('utf-8')).hexdigest()
         
         await db.resumes.update_one(
-            {"_id": ObjectId(req.resume_id), "user_id": str(current_user.id)},
-            {"$set": {f"accepted_edits.{safe_key}": {
-                "original": req.original_text,
-                "improved": req.improved_text
-            }}}
+            {"_id": to_object_id(req.resume_id), "user_id": str(current_user.id)},
+            {"$set": {
+                f"accepted_edits.{safe_key}": {
+                    "original": req.original_text,
+                    "improved": req.improved_text
+                },
+                f"impact_scores.{safe_key}": req.impact_score
+            }}
         )
+        
+        evaluation = await db.evaluations.find_one(
+            {"resume_id": req.resume_id, "user_id": str(current_user.id)},
+            sort=[("created_at", -1)]
+        )
+        
+        if evaluation:
+            current_score = evaluation.get("ats_score", 70)
+            added_value = int(req.impact_score * 0.4)
+            if added_value == 0 and req.impact_score > 0:
+                added_value = 1
+                
+            new_score = min(100, current_score + added_value)
+            
+            await db.evaluations.update_one(
+                {"_id": evaluation["_id"]},
+                {"$set": {
+                    "ats_score": new_score,
+                    f"accepted_edits.{safe_key}": {
+                        "original": req.original_text,
+                        "improved": req.improved_text
+                    },
+                    f"impact_scores.{safe_key}": req.impact_score
+                }}
+            )
+            
+            await db.analysis_results.update_many(
+                {"resume_id": req.resume_id, "user_id": str(current_user.id)},
+                {"$set": {"ats_score": new_score}}
+            )
+            
     elif req.action == "reject":
         await db.resumes.update_one(
-            {"_id": ObjectId(req.resume_id), "user_id": str(current_user.id)},
+            {"_id": to_object_id(req.resume_id), "user_id": str(current_user.id)},
             {"$push": {"rejected_edits": req.original_text}}
         )
+        
+    return {"status": "success", "new_score": new_score}
+
+class DeleteLineRequest(BaseModel):
+    resume_id: str
+    original_text: str
+
+@router.post("/delete-line")
+async def delete_line(req: DeleteLineRequest, current_user: UserModel = Depends(get_current_user)):
+    import hashlib
+    db = get_db()
+    
+    safe_key = hashlib.md5(req.original_text.encode('utf-8')).hexdigest()
+    
+    await db.resumes.update_one(
+        {"_id": to_object_id(req.resume_id), "user_id": str(current_user.id)},
+        {"$addToSet": {"deleted_blocks": safe_key}}
+    )
+    
+    await db.evaluations.update_many(
+        {"resume_id": req.resume_id, "user_id": str(current_user.id)},
+        {"$addToSet": {"deleted_blocks": safe_key}}
+    )
+    
     return {"status": "success"}

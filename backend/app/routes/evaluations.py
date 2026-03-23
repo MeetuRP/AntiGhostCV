@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from ..middleware import get_current_user
 from ..models import UserModel, EvaluationModel
-from ..database import get_db
+from ..database import get_db, to_object_id
 from bson import ObjectId
 
 router = APIRouter()
@@ -40,7 +40,7 @@ async def get_evaluation(evaluation_id: str, current_user: UserModel = Depends(g
     """
     db = get_db()
     evaluation = await db.evaluations.find_one({
-        "_id": ObjectId(evaluation_id),
+        "_id": to_object_id(evaluation_id),
         "user_id": str(current_user.id),
     })
 

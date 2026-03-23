@@ -96,10 +96,17 @@ async def login(login_data: UserLogin):
         )
     
     # Verify password
-    if not bcrypt.checkpw(login_data.password.encode('utf-8'), user["password_hash"].encode('utf-8')):
+    try:
+        if not bcrypt.checkpw(login_data.password.encode('utf-8'), user["password_hash"].encode('utf-8')):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
+    except ValueError:
+        # Happens if password_hash in DB is not a valid bcrypt hash (e.g. legacy data)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            detail="Invalid email or password or legacy account."
         )
     
     access_token = create_access_token(data={"sub": str(user["_id"]), "email": user["email"]})
@@ -144,7 +151,8 @@ async def google_callback(request: Request):
     try:
         token = await oauth.google.authorize_access_token(request)
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Authentication failed: {str(e)}")
+        # If user clicks back button, state is expired. Redirect to frontend auth page.
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/auth?error=csrf_mismatch")
     
     user_info = token.get('userinfo')
     if not user_info:

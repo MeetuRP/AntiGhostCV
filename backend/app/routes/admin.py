@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from ..middleware import require_admin
 from ..models import UserModel, AdminUserUpdate
-from ..database import get_db
+from ..database import get_db, to_object_id
 from bson import ObjectId
 from datetime import datetime, timedelta
 from pydantic import BaseModel
@@ -335,11 +335,13 @@ async def update_user(user_id: str, update_data: AdminUserUpdate, admin: UserMod
         return {"message": "No fields to update"}
         
     try:
-        oid = ObjectId(user_id)
+        oid = to_object_id(user_id)
         result = await db.users.update_one({"_id": oid}, {"$set": update_dict})
         if result.matched_count == 0:
             return {"error": "User not found"}
         return {"message": "User updated successfully"}
+    except HTTPException as e:
+        return {"error": e.detail}
     except Exception as e:
         return {"error": str(e)}
 
@@ -349,7 +351,7 @@ async def delete_user(user_id: str, admin: UserModel = Depends(require_admin)):
     """Delete user and all their associated data."""
     db = get_db()
     try:
-        oid = ObjectId(user_id)
+        oid = to_object_id(user_id)
         
         # 1. Delete user record
         user_result = await db.users.delete_one({"_id": oid})
@@ -362,6 +364,8 @@ async def delete_user(user_id: str, admin: UserModel = Depends(require_admin)):
         await db.analysis_results.delete_many({"user_id": user_id})
         
         return {"message": "User and all associated data deleted"}
+    except HTTPException as e:
+        return {"error": e.detail}
     except Exception as e:
         return {"error": str(e)}
 
@@ -392,7 +396,7 @@ async def change_user_plan(req: PlanChangeRequest, admin: UserModel = Depends(re
             req.expiry = datetime.utcnow() + timedelta(days=365*10)
             
     try:
-        oid = ObjectId(req.user_id)
+        oid = to_object_id(req.user_id)
         update_data = {
             "plan": req.plan,
             "plan_start": datetime.utcnow(),
@@ -409,6 +413,8 @@ async def change_user_plan(req: PlanChangeRequest, admin: UserModel = Depends(re
         if result.matched_count == 0:
             return {"error": "User not found"}
         return {"message": "Plan changed successfully and usage reset", "new_plan": req.plan}
+    except HTTPException as e:
+        return {"error": e.detail}
     except Exception as e:
         return {"error": str(e)}
 

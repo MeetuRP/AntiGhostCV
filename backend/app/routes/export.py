@@ -6,7 +6,7 @@ from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from ..middleware import get_current_user
 from ..models import UserModel
-from ..database import get_db
+from ..database import get_db, to_object_id
 from bson import ObjectId
 import tempfile
 import io
@@ -252,7 +252,7 @@ async def export_pdf(resume_id: str, current_user: UserModel = Depends(get_curre
     """
     db = get_db()
     resume = await db.resumes.find_one({
-        "_id": ObjectId(resume_id),
+        "_id": to_object_id(resume_id),
         "user_id": str(current_user.id)
     })
 
@@ -267,7 +267,8 @@ async def export_pdf(resume_id: str, current_user: UserModel = Depends(get_curre
     )
     
     accepted_edits = resume.get("accepted_edits", {})
-    merged_data, count = _merge_accepted_edits(base_data, accepted_edits)
+    from ..services.resume_merger import merge_accepted_edits
+    merged_data, count = merge_accepted_edits(base_data, accepted_edits)
     print(f"[Export] Merged {count} edits into PDF data for resume {resume_id}")
 
     pdf_bytes = _build_pdf_from_structured(merged_data)
@@ -287,7 +288,7 @@ async def export_docx(resume_id: str, current_user: UserModel = Depends(get_curr
     """
     db = get_db()
     resume = await db.resumes.find_one({
-        "_id": ObjectId(resume_id),
+        "_id": to_object_id(resume_id),
         "user_id": str(current_user.id)
     })
 
@@ -301,7 +302,8 @@ async def export_docx(resume_id: str, current_user: UserModel = Depends(get_curr
     )
     
     accepted_edits = resume.get("accepted_edits", {})
-    merged_data = _merge_accepted_edits(base_data, accepted_edits)
+    from ..services.resume_merger import merge_accepted_edits
+    merged_data, count = merge_accepted_edits(base_data, accepted_edits)
 
     docx_bytes = _build_docx_from_structured(merged_data)
 

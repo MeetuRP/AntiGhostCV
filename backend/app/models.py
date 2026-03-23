@@ -123,6 +123,8 @@ class ResumeModel(BaseModel):
     # Existing: accepted/rejected inline edits
     accepted_edits: dict = Field(default_factory=dict)
     rejected_edits: List[str] = Field(default_factory=list)
+    # New: Hash trackers for user-deleted blocks
+    deleted_blocks: List[str] = Field(default_factory=list)
     # New: AI impact scores per bullet text
     impact_scores: dict = Field(default_factory=dict)
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
@@ -138,6 +140,7 @@ class AnalysisResultModel(BaseModel):
     job_title: str
     job_description: str
     ats_score: int
+    initial_score: int = 0
     skills_matched: List[str] = []
     missing_skills: List[str] = []
     summary: str
@@ -156,11 +159,13 @@ class EvaluationModel(BaseModel):
     job_title: str
     job_description: str
     ats_score: int
+    initial_score: int = 0
     skills_matched: List[str] = []
     missing_skills: List[str] = []
     summary: str = ""
     suggestions: List[str] = []
     accepted_edits: dict = Field(default_factory=dict)
+    deleted_blocks: List[str] = Field(default_factory=list)
     impact_scores: dict = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

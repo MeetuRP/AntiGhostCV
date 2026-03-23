@@ -7,14 +7,16 @@ interface FixItOverlayProps {
     styles: any;
     viewport: any;
     jobDescription: string;
-    onAcceptEdit: (original: string, newText: string) => void;
+    onAcceptEdit: (original: string, newText: string, score: number) => void;
+    onDelete?: (text: string) => void;
 }
 
-const FixItOverlay: React.FC<FixItOverlayProps> = ({ items, styles, viewport, jobDescription, onAcceptEdit }) => {
+const FixItOverlay: React.FC<FixItOverlayProps> = ({ items, styles, viewport, jobDescription, onAcceptEdit, onDelete }) => {
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
     const [suggestion, setSuggestion] = useState<{ index: number, text: string, score: number, suggestions: string[] } | null>(null);
     const [acceptedEdits, setAcceptedEdits] = useState<Record<number, string>>({});
+    const [deletedBlocks, setDeletedBlocks] = useState<Record<number, boolean>>({});
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
     // Group items into logical paragraphs based on Y coordinate proximity and font size
@@ -158,10 +160,15 @@ const FixItOverlay: React.FC<FixItOverlayProps> = ({ items, styles, viewport, jo
         }
     };
 
-    const handleAccept = (index: number, original_text: string, new_text: string) => {
+    const handleAccept = (index: number, original_text: string, new_text: string, score: number) => {
         setAcceptedEdits(prev => ({ ...prev, [index]: new_text }));
         setSuggestion(null);
-        onAcceptEdit(original_text, new_text);
+        onAcceptEdit(original_text, new_text, score);
+    };
+
+    const handleDeleteLine = (index: number, text: string) => {
+        setDeletedBlocks(prev => ({ ...prev, [index]: true }));
+        if (onDelete) onDelete(text);
     };
 
     const handleReject = () => {
@@ -176,8 +183,10 @@ const FixItOverlay: React.FC<FixItOverlayProps> = ({ items, styles, viewport, jo
 
     return (
         <div className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{ width: viewport?.width, height: viewport?.height }}>
+            <AnimatePresence>
             {paragraphs.map((para) => {
                 const idx = para.id;
+                if (deletedBlocks[idx]) return null;
                 const isHovered = hoveredIndex === idx;
                 const isLoading = loadingIndex === idx;
                 const activeSuggestion = suggestion?.index === idx ? suggestion : null;
@@ -245,6 +254,19 @@ const FixItOverlay: React.FC<FixItOverlayProps> = ({ items, styles, viewport, jo
                                 />
                             )}
                         </motion.div>
+
+                        {/* Inline Delete Icon */}
+                        <div className="absolute -left-6 top-0 flex flex-col items-center gap-2 cursor-pointer transition-opacity duration-200">
+                             {!isEdited && !activeSuggestion && !isLoading && (
+                                 <button
+                                     onClick={() => handleDeleteLine(idx, para.text)}
+                                     className={`w-5 h-5 flex items-center justify-center rounded-full transition-all ${isHovered ? 'opacity-100 text-red-500 hover:scale-110 hover:bg-red-50' : 'opacity-0'}`}
+                                     title="Delete Line"
+                                 >
+                                     <span className="text-[12px] leading-none">🗑</span>
+                                 </button>
+                             )}
+                        </div>
 
                         {/* AI Trigger Icon */}
                         <div className="absolute -right-8 top-0 flex flex-col items-center gap-2 cursor-pointer transition-opacity duration-200">
@@ -323,7 +345,7 @@ const FixItOverlay: React.FC<FixItOverlayProps> = ({ items, styles, viewport, jo
 
                                     <div className="flex gap-2">
                                         <button
-                                            onClick={() => handleAccept(idx, para.text, activeSuggestion.text)}
+                                            onClick={() => handleAccept(idx, para.text, activeSuggestion.text, activeSuggestion.score)}
                                             className="flex-1 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[11px] font-bold py-2 rounded-xl transition-all shadow-md shadow-indigo-200 flex items-center justify-center gap-1.5"
                                         >
                                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -361,6 +383,7 @@ const FixItOverlay: React.FC<FixItOverlayProps> = ({ items, styles, viewport, jo
                     </div>
                 );
             })}
+            </AnimatePresence>
         </div>
     );
 };

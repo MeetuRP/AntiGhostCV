@@ -35,8 +35,9 @@ const Evaluate = () => {
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        if (!resumeId) {
-            setError("Please upload a resume first before evaluating.");
+        // Ensure we don't send "undefined" or empty to backend
+        if (!resumeId || resumeId === "undefined" || resumeId === "null") {
+            setError("Please selection or upload a resume first.");
             return;
         }
 

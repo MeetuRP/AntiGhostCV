@@ -88,7 +88,11 @@ const Onboarding = () => {
             const uploadRes = await api.post('/resume/upload', formDataUpload, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            const resumeId = uploadRes.data.id;
+            const resumeId = uploadRes.data.id || uploadRes.data._id;
+            
+            if (!resumeId || resumeId === "undefined") {
+                throw new Error("Failed to initialize resume ID. Please try again.");
+            }
             
             setProgress(40);
             setAnalysisText("Extracting structure and skills...");
@@ -98,10 +102,20 @@ const Onboarding = () => {
             setProgress(60);
             setAnalysisText("Running ATS matching logic...");
             
-            // Dummy JD to generate a score against the target role
-            const dummyJd = `Looking for a strong ${formData.target_role} with experience as a ${formData.experience_level} engineer. Core skills: React, Node.js, Python, AWS, Docker, Kubernetes, SQL, NoSQL.`;
+            // Dynamic Dummy JD to generate a realistic score against the target role
+            const roleLower = formData.target_role.toLowerCase();
+            let dummyJd = "";
+            if (roleLower.includes("design") || roleLower.includes("ux")) {
+                dummyJd = `Looking for a ${formData.target_role} with experience as a ${formData.experience_level} designer. Core skills required: Figma, UI/UX, Wireframing, Prototyping, User Research, Adobe Creative Suite.`;
+            } else if (roleLower.includes("data") || roleLower.includes("analy")) {
+                dummyJd = `Looking for a ${formData.target_role} with experience as a ${formData.experience_level} professional. Core skills required: Python, SQL, Data Analysis, Machine Learning, Tableau, Pandas.`;
+            } else if (roleLower.includes("product") || roleLower.includes("manager")) {
+                dummyJd = `Looking for a ${formData.target_role} with experience as a ${formData.experience_level} professional. Core skills required: Product Management, Agile, Scrum, Strategy, Leadership, Roadmap Planning.`;
+            } else {
+                dummyJd = `Looking for a strong ${formData.target_role} with experience as a ${formData.experience_level} engineer. Core skills: React, Node.js, Python, AWS, Docker, Kubernetes, SQL, NoSQL.`;
+            }
             
-            const evalRes = await api.post(`/analysis/evaluate?resume_id=${resumeId}&job_title=${encodeURIComponent(formData.target_role)}&job_description=${encodeURIComponent(dummyJd)}`);
+            const evalRes = await api.post(`/analysis/evaluate?resume_id=${resumeId}&job_title=${encodeURIComponent(formData.target_role)}&job_description=${encodeURIComponent(dummyJd)}&is_onboarding=true`);
             setAnalysisResult(evalRes.data);
             
             setProgress(90);
@@ -114,14 +128,12 @@ const Onboarding = () => {
             setProgress(100);
             setTimeout(() => setStep(6), 500);
 
-        } catch (err) {
+        } catch (err: any) {
             console.error("Onboarding failed:", err);
-            // Fallback mock if api fails (for robustness)
-            setAnalysisResult({
-                ats_score: 45,
-                suggestions: ["Upload failed or evaluation errored. Showing fallback profile."]
-            });
-            setStep(6);
+            alert("Failed to process your resume or complete onboarding. Please try again or check the file format.");
+            setStep(4);
+            setProgress(0);
+            setAnalysisText("Upload failed. Please retry.");
         }
     };
 

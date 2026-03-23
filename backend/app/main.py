@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -5,7 +6,29 @@ from .database import connect_to_mongo, close_mongo_connection
 from .config import settings
 from .routes import auth, resume, analysis, admin, events, export, evaluations, user
 
-app = FastAPI(title="AntiGhost CV AI API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Connect to MongoDB
+    await connect_to_mongo()
+    
+    # Preload AI models
+    try:
+        from sentence_transformers import SentenceTransformer
+        from .routes import analysis
+        analysis.router.st_model = SentenceTransformer('all-MiniLM-L6-v2')
+        print("[Startup] SentenceTransformer model preloaded successfully.")
+    except Exception as e:
+        print(f"[Startup] Warning: Could not preload SentenceTransformer: {e}")
+        
+    yield
+    
+    # Shutdown: Close MongoDB connection (Optional: simplified for reload stability)
+    try:
+        await close_mongo_connection()
+    except Exception as e:
+        print(f"[Shutdown] Warning during DB close: {e}")
+
+app = FastAPI(title="AntiGhost CV AI API", lifespan=lifespan)
 
 # CORS setup
 app.add_middleware(
@@ -31,23 +54,8 @@ app.add_middleware(
     https_only=False
 )
 
-@app.on_event("startup")
-async def startup_db_client():
-    await connect_to_mongo()
-    # Preload AI models at startup so the first evaluation is fast
-    try:
-        from sentence_transformers import SentenceTransformer
-        from .routes import analysis
-        analysis.router.st_model = SentenceTransformer('all-MiniLM-L6-v2')
-        print("[Startup] SentenceTransformer model preloaded successfully.")
-    except Exception as e:
-        print(f"[Startup] Warning: Could not preload SentenceTransformer: {e}")
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    await close_mongo_connection()
-
 # Include routers
+
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(resume.router, prefix="/api/resume", tags=["Resume"])
 app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])

@@ -6,9 +6,9 @@ import shutil
 from ..middleware import get_current_user
 from ..models import UserModel, ResumeModel, ExtractedData, SocialLinks
 from ..services.parser import ResumeParser
-from ..database import get_db
-from bson import ObjectId
+from ..database import get_db, to_object_id
 from pydantic import BaseModel
+from bson import ObjectId
 
 router = APIRouter()
 
@@ -16,7 +16,7 @@ UPLOAD_DIR = "uploads"
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 
-@router.post("/upload", response_model=ResumeModel)
+@router.post("/upload")
 async def upload_resume(
     file: UploadFile = File(...),
     current_user: UserModel = Depends(get_current_user)
@@ -115,14 +115,14 @@ async def get_my_resumes(current_user: UserModel = Depends(get_current_user)):
 async def view_resume(resume_id: str, current_user: UserModel = Depends(get_current_user)):
     db = get_db()
     resume = await db.resumes.find_one({
-        "_id": ObjectId(resume_id),
+        "_id": to_object_id(resume_id),
         "user_id": str(current_user.id)
     })
     
     if not resume:
         # Check if user is admin (admin can view any resume)
         if current_user.is_admin:
-            resume = await db.resumes.find_one({"_id": ObjectId(resume_id)})
+            resume = await db.resumes.find_one({"_id": to_object_id(resume_id)})
             
         if not resume:
             # SELF-HEALING: If specific resume_id is missing, fallback to latest
@@ -162,7 +162,7 @@ async def get_structured_resume(resume_id: str, current_user: UserModel = Depend
     """Returns the structured JSON used to render ATS templates. Falls back to extracted_data for legacy resumes."""
     db = get_db()
     resume = await db.resumes.find_one({
-        "_id": ObjectId(resume_id),
+        "_id": to_object_id(resume_id),
         "user_id": str(current_user.id)
     })
     if not resume:
@@ -173,10 +173,24 @@ async def get_structured_resume(resume_id: str, current_user: UserModel = Depend
         or resume.get("structured_resume_json")
         or resume.get("extracted_data", {})
     )
+    
+    # NEW: Merge accepted AI improvements so they persist on refresh
+    from ..services.resume_merger import merge_accepted_edits, filter_deleted_blocks
+    accepted_edits = resume.get("accepted_edits", {})
+    merged_data, count = merge_accepted_edits(structured, accepted_edits)
+    if count > 0:
+        print(f"[Resume] Merged {count} edits for UI display of resume {resume_id}")
+
+    # NEW: Filter out deleted blocks
+    deleted_blocks = resume.get("deleted_blocks", [])
+    filtered_data, del_count = filter_deleted_blocks(merged_data, deleted_blocks)
+    if del_count > 0:
+        print(f"[Resume] Filtered {del_count} deleted blocks for resume {resume_id}")
+
     return {
         "resume_id": resume_id,
         "selected_template": resume.get("selected_template", "modern-ats"),
-        "structured_resume": structured,
+        "structured_resume": filtered_data,
     }
 
 
@@ -185,7 +199,7 @@ async def update_template(resume_id: str, body: TemplateUpdate, current_user: Us
     """Update the selected ATS template for a resume."""
     db = get_db()
     result = await db.resumes.update_one(
-        {"_id": ObjectId(resume_id), "user_id": str(current_user.id)},
+        {"_id": to_object_id(resume_id), "user_id": str(current_user.id)},
         {"$set": {"selected_template": body.template_id}}
     )
     if result.matched_count == 0:
@@ -198,7 +212,7 @@ async def reparse_resume(resume_id: str, current_user: UserModel = Depends(get_c
     """Re-run the parser on an existing resume PDF to update structured data with latest parser improvements."""
     db = get_db()
     resume = await db.resumes.find_one({
-        "_id": ObjectId(resume_id),
+        "_id": to_object_id(resume_id),
         "user_id": str(current_user.id)
     })
     if not resume:
@@ -214,7 +228,7 @@ async def reparse_resume(resume_id: str, current_user: UserModel = Depends(get_c
         raise HTTPException(status_code=500, detail=f"Re-parse failed: {str(e)}")
     
     await db.resumes.update_one(
-        {"_id": ObjectId(resume_id)},
+        {"_id": to_object_id(resume_id)},
         {"$set": {
             "structured_resume_json": structured_json,
             "optimized_resume_json": structured_json,

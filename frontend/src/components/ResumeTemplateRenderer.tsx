@@ -14,6 +14,22 @@ const PopupPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return ReactDOM.createPortal(children, el.current);
 };
 
+class ErrorBoundary extends React.Component<{children: any}, {error: any}> {
+    constructor(props: any) { super(props); this.state = { error: null }; }
+    static getDerivedStateFromError(error: any) { return { error }; }
+    render() {
+        if (this.state.error) {
+            return (
+                <div style={{ padding: 20, color: 'red', background: '#ffebee', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all', zIndex: 99999 }}>
+                    <h2>React Error:</h2>
+                    <pre>{this.state.error.stack || this.state.error.message}</pre>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface StructuredResume {
@@ -54,6 +70,8 @@ interface TemplateRendererProps {
     resumeId?: string;
     jobDescription?: string;
     onDataChange?: (updated: StructuredResume) => void;
+    onDeleteLine?: (text: string) => void;
+    onScoreUpdate?: (newScore: number) => void;
 }
 
 // ─── Template Metadata ────────────────────────────────────────────────────────
@@ -66,6 +84,40 @@ export const TEMPLATES: { id: TemplateId; name: string; tagline: string; atsScor
     { id: 'developer-ats', name: 'Developer ATS', tagline: 'GitHub-linked, stack-highlighted for SWE applications', atsScore: 97, color: 'green' },
     { id: 'creative-ats', name: 'Creative ATS', tagline: 'Bold yet machine-readable — best for product & design', atsScore: 94, color: 'rose' },
 ];
+
+// ─── Impact Label Component ──────────────────────────────────────────────────
+
+const ImpactLabel: React.FC<{ score: number }> = ({ score }) => {
+    const impact = score >= 8 ? 'High' : score >= 5 ? 'Medium' : 'Low';
+    const config = {
+        High: { icon: '🔥', text: 'High Impact', bg: 'bg-emerald-50', border: 'border-emerald-100', color: 'text-emerald-700' },
+        Medium: { icon: '⚡', text: 'Medium Impact', bg: 'bg-amber-50', border: 'border-amber-100', color: 'text-amber-700' },
+        Low: { icon: '➕', text: 'Minor Improvement', bg: 'bg-slate-50', border: 'border-slate-100', color: 'text-slate-600' }
+    }[impact];
+
+    return (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tight border ${config.bg} ${config.border} ${config.color}`}>
+            <span>{config.icon}</span>
+            <span>{config.text}</span>
+        </span>
+    );
+};
+
+const SmartText: React.FC<{ text: string }> = ({ text }) => {
+    // Replace **text** with <strong>text</strong>
+    if (!text) return null;
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return (
+        <>
+            {parts.map((p, i) => {
+                if (p.startsWith('**') && p.endsWith('**')) {
+                    return <strong key={i} className="font-extrabold" style={{ color: 'inherit' }}>{p.slice(2, -2)}</strong>;
+                }
+                return p;
+            })}
+        </>
+    );
+};
 
 // ─── Grammarly-Style Text Swap Animation ─────────────────────────────────────
 
@@ -129,7 +181,7 @@ const TextSwap: React.FC<{ text: string; isReplacing: boolean; nextText: string;
                 animate={{ opacity: 1 }}
                 style={{ display: 'inline' }}
             >
-                {nextText.slice(0, typedLen)}
+                <SmartText text={nextText.slice(0, typedLen)} />
                 <motion.span
                     animate={{ opacity: [1, 0] }}
                     transition={{ repeat: Infinity, duration: 0.5 }}
@@ -145,10 +197,11 @@ const TextSwap: React.FC<{ text: string; isReplacing: boolean; nextText: string;
             transition={{ duration: 0.2 }}
             style={{ display: 'inline' }}
         >
-            {displayed}
+            <SmartText text={displayed} />
         </motion.span>
     );
 };
+
 
 // ─── Inline Improve Button ────────────────────────────────────────────────────
 
@@ -156,7 +209,7 @@ interface InlineImproveProps {
     text: string;
     section: string;
     jobDescription: string;
-    onApply: (newText: string) => void;
+    onApply: (newText: string, score: number) => void;
     accentColor?: string;
 }
 
@@ -165,6 +218,7 @@ const InlineImprove: React.FC<InlineImproveProps> = ({ text, section, jobDescrip
     const [suggestion, setSuggestion] = useState<{ text: string; score: number } | null>(null);
     const [copied, setCopied] = useState(false);
     const [open, setOpen] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const ref = useRef<HTMLSpanElement>(null);
     const btnRef = useRef<HTMLButtonElement>(null);
     const [popupPos, setPopupPos] = useState<{ top?: number; bottom?: number; left: number; maxW?: number } | null>(null);
@@ -205,6 +259,7 @@ const InlineImprove: React.FC<InlineImproveProps> = ({ text, section, jobDescrip
     const handleImprove = async () => {
         setLoading(true);
         setOpen(true);
+        setError(null);
         try {
             const res = await api.post('/analysis/improve-line', {
                 text,
@@ -212,8 +267,12 @@ const InlineImprove: React.FC<InlineImproveProps> = ({ text, section, jobDescrip
                 section,
             });
             setSuggestion({ text: res.data.improved_text, score: res.data.impact_score });
-        } catch {
-            setSuggestion({ text: text, score: 5 });
+        } catch (err: any) {
+            if (err.response?.status === 429) {
+                setError("DAILY_LIMIT");
+            } else {
+                setSuggestion({ text: text, score: 5 });
+            }
         } finally {
             setLoading(false);
         }
@@ -226,7 +285,7 @@ const InlineImprove: React.FC<InlineImproveProps> = ({ text, section, jobDescrip
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const close = () => { setOpen(false); setSuggestion(null); };
+    const close = () => { setOpen(false); setSuggestion(null); setError(null); };
 
     return (
         <span ref={ref} className="group/improve relative inline-block align-middle" style={{ verticalAlign: 'baseline' }}>
@@ -266,6 +325,8 @@ const InlineImprove: React.FC<InlineImproveProps> = ({ text, section, jobDescrip
                                 border: '1px solid #f1f5f9',
                                 padding: 16,
                                 overflowX: 'hidden',
+                                overflowY: 'auto',
+                                maxHeight: 'min(500px, 80vh)',
                                 maxWidth: 'calc(100vw - 32px)',
                             }}
                         >
@@ -277,9 +338,7 @@ const InlineImprove: React.FC<InlineImproveProps> = ({ text, section, jobDescrip
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {suggestion && (
-                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${suggestion.score >= 8 ? 'bg-green-100 text-green-700' : suggestion.score >= 6 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                                            Impact {suggestion.score}/10
-                                        </span>
+                                        <ImpactLabel score={suggestion.score} />
                                     )}
                                     <button onClick={close} className="text-slate-300 hover:text-slate-500 text-lg leading-none ml-1">×</button>
                                 </div>
@@ -292,14 +351,25 @@ const InlineImprove: React.FC<InlineImproveProps> = ({ text, section, jobDescrip
                                     <div className="h-3 bg-slate-100 rounded-full animate-pulse w-4/6" />
                                     <p className="text-[10px] text-slate-400 mt-2 text-center">AI is analyzing your text...</p>
                                 </div>
+                            ) : error === "DAILY_LIMIT" ? (
+                                <div className="py-4 text-center">
+                                    <div className="text-3xl mb-2">⌛</div>
+                                    <h4 className="text-sm font-black text-slate-800 mb-1">Daily AI Limit Reached</h4>
+                                    <p className="text-[11px] text-slate-500 leading-relaxed px-4">
+                                        You've reached your daily quota for AI improvements. Please try again tomorrow or upgrade your plan.
+                                    </p>
+                                    <button onClick={close} className="mt-4 px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-bold rounded-xl transition-all">
+                                        Got it
+                                    </button>
+                                </div>
                             ) : suggestion ? (
                                 <>
                                     <div className="bg-gradient-to-br from-indigo-50 to-slate-50 rounded-xl p-3 mb-3 text-[12px] text-slate-800 font-medium leading-relaxed border border-indigo-100/60">
-                                        {suggestion.text}
+                                        <SmartText text={suggestion.text} />
                                     </div>
                                     <div className="flex gap-2">
                                         <button
-                                            onClick={() => { onApply(suggestion.text); close(); }}
+                                            onClick={() => { onApply(suggestion.text, suggestion.score); close(); }}
                                             className="flex-1 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[11px] font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-indigo-200"
                                         >
                                             <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
@@ -337,7 +407,8 @@ interface BulletItemProps {
     text: string;
     section: string;
     jobDescription: string;
-    onApply: (t: string) => void;
+    onApply: (t: string, score: number) => void;
+    onDelete?: (section: string, text: string) => void;
     bulletChar?: string;
     bulletColor?: string;
     textStyle?: React.CSSProperties;
@@ -345,28 +416,41 @@ interface BulletItemProps {
 }
 
 const BulletItem: React.FC<BulletItemProps> = ({
-    text, section, jobDescription, onApply, bulletChar = '•', bulletColor, textStyle, accentColor
+    text, section, jobDescription, onApply, onDelete, bulletChar = '•', bulletColor, textStyle, accentColor
 }) => {
     const [isReplacing, setIsReplacing] = useState(false);
+    const [isDeleted, setIsDeleted] = useState(false);
     const [current, setCurrent] = useState(text);
     const [next, setNext] = useState('');
+    const [lastScore, setLastScore] = useState(0);
 
-    const handleApply = (newText: string) => {
+    const handleApply = (newText: string, score: number) => {
         setNext(newText);
+        setLastScore(score);
         setIsReplacing(true);
+    };
+
+    const handleDelete = () => {
+        setIsDeleted(true);
+        if (onDelete) onDelete(section, text);
     };
 
     const handleComplete = () => {
         setCurrent(next);
         setIsReplacing(false);
-        onApply(next);
+        onApply(next, lastScore);
     };
 
     return (
-        <div className="group/bullet flex items-start gap-2 mb-2" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-            <span className="shrink-0 mt-[3px]" style={{ color: bulletColor || 'currentColor', fontSize: '0.8em' }}>
-                {bulletChar}
-            </span>
+        <AnimatePresence>
+        {!isDeleted && (
+            <motion.div exit={{ opacity: 0, height: 0, scale: 0.95, y: -10 }} transition={{ duration: 0.2 }} className="group/bullet relative flex items-start gap-2 mb-2" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                {onDelete && (
+                    <button onClick={handleDelete} className="absolute -left-6 top-0.5 opacity-0 group-hover/bullet:opacity-100 flex items-center justify-center w-5 h-5 rounded-full hover:bg-red-50 text-red-500 hover:scale-110 transition-all active:scale-95 cursor-pointer z-10" title="Delete Line"><span className="text-[12px] leading-none mb-0.5">🗑</span></button>
+                )}
+                <span className="shrink-0 mt-[3px]" style={{ color: bulletColor || 'currentColor', fontSize: '0.8em' }}>
+                    {bulletChar}
+                </span>
             <span style={{ ...textStyle, minWidth: 0, flex: 1, lineHeight: 1.6 }}>
                 <TextSwap
                     text={current}
@@ -384,7 +468,9 @@ const BulletItem: React.FC<BulletItemProps> = ({
                     />
                 )}
             </span>
-        </div>
+            </motion.div>
+        )}
+        </AnimatePresence>
     );
 };
 
@@ -447,7 +533,7 @@ const WRAP_STYLE: React.CSSProperties = {
 // TEMPLATE 1: Modern ATS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: string, i: number, t: string) => void }> = ({ data, jd, onApply }) => (
+const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: string, i: number, t: string, score: number) => void; onDelete?: (s: string, t: string) => void; }> = ({ data, jd, onApply, onDelete }) => (
     <div data-resume-target="true" style={{ fontFamily: "'Georgia', 'Times New Roman', serif", color: '#1a1a2e', lineHeight: 1.6, padding: '36px 44px', background: '#fff', ...WRAP_STYLE }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, textAlign: 'center', marginBottom: 4, letterSpacing: '0.02em' }}>{data.name || 'Your Name'}</h1>
         <div style={{ textAlign: 'center', fontSize: 12, color: '#555', marginBottom: 4 }}>
@@ -460,8 +546,8 @@ const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: str
             <>
                 <Sec style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: '#3730a3', textTransform: 'uppercase' }}>Professional Summary</Sec>
                 <p style={{ fontSize: 12.5, lineHeight: 1.65, marginBottom: 6, ...WRAP_STYLE }}>
-                    {data.summary}
-                    <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t) => onApply('summary', 0, t)} />
+                    <SmartText text={data.summary} />
+                    <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} />
                 </p>
             </>
         )}
@@ -469,14 +555,14 @@ const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: str
         {data.experience && data.experience.length > 0 && (
             <>
                 <Sec style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: '#3730a3', textTransform: 'uppercase' }}>Experience</Sec>
-                {data.experience.map((exp, i) => <BulletItem key={i} text={exp} section="experience" jobDescription={jd} onApply={(t) => onApply('experience', i, t)} bulletColor="#3730a3" textStyle={{ fontSize: 12.5 }} />)}
+                {data.experience.map((exp) => <BulletItem key={exp} text={exp} section="experience" jobDescription={jd} onApply={(t, score) => onApply('experience', data.experience.indexOf(exp), t, score)} onDelete={onDelete} bulletColor="#3730a3" textStyle={{ fontSize: 12.5 }} />)}
             </>
         )}
 
         {data.education && data.education.length > 0 && (
             <>
                 <Sec style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: '#3730a3', textTransform: 'uppercase' }}>Education</Sec>
-                {data.education.map((edu, i) => <BulletItem key={i} text={edu} section="education" jobDescription={jd} onApply={(t) => onApply('education', i, t)} bulletColor="#3730a3" textStyle={{ fontSize: 12.5 }} />)}
+                {data.education.map((edu) => <BulletItem key={edu} text={edu} section="education" jobDescription={jd} onApply={(t, score) => onApply('education', data.education.indexOf(edu), t, score)} onDelete={onDelete} bulletColor="#3730a3" textStyle={{ fontSize: 12.5 }} />)}
             </>
         )}
 
@@ -502,7 +588,7 @@ const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: str
         {data.projects && data.projects.length > 0 && (
             <>
                 <Sec style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: '#3730a3', textTransform: 'uppercase' }}>Projects</Sec>
-                {data.projects.map((p, i) => <BulletItem key={i} text={p} section="projects" jobDescription={jd} onApply={(t) => onApply('projects', i, t)} bulletColor="#3730a3" textStyle={{ fontSize: 12.5 }} />)}
+                {data.projects.map((p) => <BulletItem key={p} text={p} section="projects" jobDescription={jd} onApply={(t, score) => onApply('projects', data.projects.indexOf(p), t, score)} onDelete={onDelete} bulletColor="#3730a3" textStyle={{ fontSize: 12.5 }} />)}
             </>
         )}
 
@@ -513,7 +599,7 @@ const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: str
                     {data.certifications.map((c, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
                             <span style={{ color: '#3730a3', fontSize: '0.7em', flexShrink: 0 }}>■</span>
-                            <span style={{ fontWeight: 500 }}>{c}</span>
+                            <span style={{ fontWeight: 500 }}><SmartText text={c} /></span>
                         </div>
                     ))}
                 </div>
@@ -523,14 +609,14 @@ const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: str
         {data.publications && data.publications.length > 0 && (
             <>
                 <Sec style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: '#3730a3', textTransform: 'uppercase' }}>Publications</Sec>
-                {data.publications.map((p, i) => <BulletItem key={i} text={p} section="publications" jobDescription={jd} onApply={(t) => onApply('publications', i, t)} bulletColor="#3730a3" textStyle={{ fontSize: 12.5 }} />)}
+                {data.publications.map((p) => <BulletItem key={p} text={p} section="publications" jobDescription={jd} onApply={(t, score) => onApply('publications', data.publications.indexOf(p), t, score)} onDelete={onDelete} bulletColor="#3730a3" textStyle={{ fontSize: 12.5 }} />)}
             </>
         )}
 
         {data.volunteering && data.volunteering.length > 0 && (
             <>
                 <Sec style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: '#3730a3', textTransform: 'uppercase' }}>Volunteering</Sec>
-                {data.volunteering.map((v, i) => <BulletItem key={i} text={v} section="volunteering" jobDescription={jd} onApply={(t) => onApply('volunteering', i, t)} bulletColor="#3730a3" textStyle={{ fontSize: 12.5 }} />)}
+                {data.volunteering.map((v) => <BulletItem key={v} text={v} section="volunteering" jobDescription={jd} onApply={(t, score) => onApply('volunteering', data.volunteering.indexOf(v), t, score)} onDelete={onDelete} bulletColor="#3730a3" textStyle={{ fontSize: 12.5 }} />)}
             </>
         )}
     </div>
@@ -540,7 +626,7 @@ const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: str
 // TEMPLATE 2: Minimal ATS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const MinimalATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: string, i: number, t: string) => void }> = ({ data, jd, onApply }) => (
+const MinimalATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: string, i: number, t: string, score: number) => void; onDelete?: (s: string, t: string) => void; }> = ({ data, jd, onApply, onDelete }) => (
     <div data-resume-target="true" style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif", color: '#111', padding: '40px 48px', background: '#fff', ...WRAP_STYLE }}>
         <h1 style={{ fontSize: 22, fontWeight: 300, letterSpacing: '0.04em', marginBottom: 2 }}>{data.name || 'Your Name'}</h1>
         <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>{[data.phone, data.email].filter(Boolean).join('  |  ')}</div>
@@ -549,8 +635,8 @@ const MinimalATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: st
 
         {data.summary && (
             <p style={{ fontSize: 12, color: '#444', marginBottom: 14, lineHeight: 1.7, ...WRAP_STYLE }}>
-                {data.summary}
-                <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t) => onApply('summary', 0, t)} />
+                <SmartText text={data.summary} />
+                <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} />
             </p>
         )}
 
@@ -562,7 +648,7 @@ const MinimalATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: st
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', color: '#888', textTransform: 'uppercase', marginBottom: 6 }}>
                         {section.charAt(0).toUpperCase() + section.slice(1)}
                     </div>
-                    {items.map((item, i) => <BulletItem key={i} text={item} section={section} jobDescription={jd} onApply={(t) => onApply(section, i, t)} textStyle={{ fontSize: 12 }} />)}
+                    {items.map((item) => <BulletItem key={item} text={item} section={section} jobDescription={jd} onApply={(t, score) => onApply(section, items.indexOf(item), t, score)} onDelete={onDelete} textStyle={{ fontSize: 12 }} />)}
                 </div>
             );
         })}
@@ -580,7 +666,7 @@ const MinimalATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: st
 // TEMPLATE 3: Technical ATS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const TechnicalATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: string, i: number, t: string) => void }> = ({ data, jd, onApply }) => (
+const TechnicalATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: string, i: number, t: string, score: number) => void; onDelete?: (s: string, t: string) => void; }> = ({ data, jd, onApply, onDelete }) => (
     <div data-resume-target="true" style={{ fontFamily: "'Courier New', monospace", background: '#0f1117', color: '#e2e8f0', padding: '36px 44px', minHeight: '100%', ...WRAP_STYLE }}>
         <div style={{ color: '#7dd3fc', fontSize: 10, marginBottom: 4, letterSpacing: '0.1em' }}>{'// resume.json'}</div>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>{data.name || 'Your Name'}</h1>
@@ -613,9 +699,10 @@ const TechnicalATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: 
                     <div style={{ color: '#34d399', fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>
                         {`// ${section}`}
                     </div>
-                    {items.map((item, i) => (
-                        <BulletItem key={i} text={item} section={section} jobDescription={jd}
-                            onApply={(t) => onApply(section, i, t)}
+                    {items.map((item) => (
+                        <BulletItem key={item} text={item} section={section} jobDescription={jd}
+                            onApply={(t, score) => onApply(section, items.indexOf(item), t, score)}
+                            onDelete={onDelete}
                             bulletChar="→" bulletColor="#f59e0b"
                             textStyle={{ fontSize: 12, color: '#e2e8f0' }}
                         />
@@ -630,7 +717,7 @@ const TechnicalATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: 
 // TEMPLATE 4: Executive ATS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const ExecutiveATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: string, i: number, t: string) => void }> = ({ data, jd, onApply }) => (
+const ExecutiveATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: string, i: number, t: string, score: number) => void; onDelete?: (s: string, t: string) => void; }> = ({ data, jd, onApply, onDelete }) => (
     <div data-resume-target="true" style={{ fontFamily: "'Times New Roman', Georgia, serif", color: '#1a1a1a', padding: '44px 52px', background: '#fff', ...WRAP_STYLE }}>
         <h1 style={{ fontSize: 26, fontWeight: 400, textAlign: 'center', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>{data.name || 'Your Name'}</h1>
         <div style={{ textAlign: 'center', fontSize: 11, color: '#444', borderTop: '1px solid #1a1a1a', borderBottom: '1px solid #1a1a1a', padding: '5px 0', margin: '6px 0', ...WRAP_STYLE }}>
@@ -640,8 +727,8 @@ const ExecutiveATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: 
 
         {data.summary && (
             <p style={{ fontSize: 12.5, lineHeight: 1.7, textAlign: 'justify', fontStyle: 'italic', color: '#333', margin: '12px 0', ...WRAP_STYLE }}>
-                {data.summary}
-                <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t) => onApply('summary', 0, t)} />
+                <SmartText text={data.summary} />
+                <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} />
             </p>
         )}
 
@@ -654,7 +741,7 @@ const ExecutiveATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: 
                     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', borderBottom: '1px solid #1a1a1a', paddingBottom: 2, marginBottom: 8 }}>
                         {section.charAt(0).toUpperCase() + section.slice(1)}
                     </div>
-                    {items.map((item, i) => <BulletItem key={i} text={item} section={section} jobDescription={jd} onApply={(t) => onApply(section, i, t)} textStyle={{ fontSize: 12.5 }} />)}
+                    {items.map((item) => <BulletItem key={item} text={item} section={section} jobDescription={jd} onApply={(t, score) => onApply(section, items.indexOf(item), t, score)} onDelete={onDelete} textStyle={{ fontSize: 12.5 }} />)}
                 </div>
             );
         })}
@@ -665,7 +752,7 @@ const ExecutiveATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: 
 // TEMPLATE 5: Developer ATS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const DeveloperATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: string, i: number, t: string) => void }> = ({ data, jd, onApply }) => (
+const DeveloperATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: string, i: number, t: string, score: number) => void; onDelete?: (s: string, t: string) => void; }> = ({ data, jd, onApply, onDelete }) => (
     <div data-resume-target="true" style={{ fontFamily: "'Inter', -apple-system, sans-serif", background: '#f8fafc', color: '#0f172a', ...WRAP_STYLE }}>
         <div style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)', padding: '28px 44px', ...WRAP_STYLE }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '0.01em' }}>{data.name || 'Your Name'}</h1>
@@ -683,8 +770,8 @@ const DeveloperATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: 
         <div style={{ padding: '20px 44px' }}>
             {data.summary && (
                 <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.65, marginBottom: 16, ...WRAP_STYLE }}>
-                    {data.summary}
-                    <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t) => onApply('summary', 0, t)} accentColor="#4f46e5" />
+                    <SmartText text={data.summary} />
+                    <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} accentColor="#4f46e5" />
                 </p>
             )}
 
@@ -707,7 +794,7 @@ const DeveloperATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: 
                         <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', color: '#4f46e5', textTransform: 'uppercase', marginBottom: 8 }}>
                             {section.charAt(0).toUpperCase() + section.slice(1)}
                         </div>
-                        {items.map((item, i) => <BulletItem key={i} text={item} section={section} jobDescription={jd} onApply={(t) => onApply(section, i, t)} bulletColor="#4f46e5" textStyle={{ fontSize: 12.5 }} accentColor="#4f46e5" />)}
+                        {items.map((item) => <BulletItem key={item} text={item} section={section} jobDescription={jd} onApply={(t, score) => onApply(section, items.indexOf(item), t, score)} onDelete={onDelete} bulletColor="#4f46e5" textStyle={{ fontSize: 12.5 }} accentColor="#4f46e5" />)}
                     </div>
                 );
             })}
@@ -719,7 +806,7 @@ const DeveloperATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: 
 // TEMPLATE 6: Creative ATS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const CreativeATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: string, i: number, t: string) => void }> = ({ data, jd, onApply }) => (
+const CreativeATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: string, i: number, t: string, score: number) => void; onDelete?: (s: string, t: string) => void; }> = ({ data, jd, onApply, onDelete }) => (
     <div data-resume-target="true" style={{ fontFamily: "'Georgia', serif", background: '#fff', color: '#1a1a2e', ...WRAP_STYLE }}>
         <div style={{ background: '#fff7ed', borderBottom: '3px solid #fb923c', padding: '32px 44px', ...WRAP_STYLE }}>
             <h1 style={{ fontSize: 26, fontWeight: 700, color: '#c2410c', margin: 0 }}>{data.name || 'Your Name'}</h1>
@@ -737,8 +824,8 @@ const CreativeATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: s
         <div style={{ padding: '20px 44px' }}>
             {data.summary && (
                 <p style={{ fontSize: 13, color: '#78350f', lineHeight: 1.65, marginBottom: 16, fontStyle: 'italic', ...WRAP_STYLE }}>
-                    {data.summary}
-                    <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t) => onApply('summary', 0, t)} accentColor="#c2410c" />
+                    <SmartText text={data.summary} />
+                    <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} accentColor="#c2410c" />
                 </p>
             )}
 
@@ -751,7 +838,7 @@ const CreativeATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: s
                         <div style={{ fontSize: 12, fontWeight: 700, color: '#c2410c', letterSpacing: '0.08em', textTransform: 'uppercase', borderLeft: '3px solid #fb923c', paddingLeft: 10, marginBottom: 8 }}>
                             {section.charAt(0).toUpperCase() + section.slice(1)}
                         </div>
-                        {items.map((item, i) => <BulletItem key={i} text={item} section={section} jobDescription={jd} onApply={(t) => onApply(section, i, t)} bulletColor="#fb923c" textStyle={{ fontSize: 12.5 }} accentColor="#c2410c" />)}
+                        {items.map((item) => <BulletItem key={item} text={item} section={section} jobDescription={jd} onApply={(t, score) => onApply(section, items.indexOf(item), t, score)} onDelete={onDelete} bulletColor="#fb923c" textStyle={{ fontSize: 12.5 }} accentColor="#c2410c" />)}
                     </div>
                 );
             })}
@@ -828,6 +915,7 @@ const ResumeTemplateRenderer: React.FC<TemplateRendererProps> = ({
     resumeId,
     jobDescription = '',
     onDataChange,
+    onScoreUpdate,
 }) => {
     const [localData, setLocalData] = useState<StructuredResume>(data);
 
@@ -836,7 +924,7 @@ const ResumeTemplateRenderer: React.FC<TemplateRendererProps> = ({
         setLocalData(data);
     }, [data]);
 
-    const handleApply = useCallback(async (section: string, idx: number, newText: string) => {
+    const handleApply = useCallback(async (section: string, idx: number, newText: string, score: number = 0) => {
         setLocalData(prev => {
             const updated = { ...prev };
             const arr = updated[section as keyof StructuredResume] as string[] | undefined;
@@ -853,22 +941,55 @@ const ResumeTemplateRenderer: React.FC<TemplateRendererProps> = ({
 
         if (resumeId) {
             try {
-                await api.post('/analysis/save-edit', {
+                const res = await api.post('/analysis/save-edit', {
                     resume_id: resumeId,
                     original_text: (data[section as keyof StructuredResume] as string[])?.[idx] ?? data.summary,
                     improved_text: newText,
                     action: 'accept',
+                    impact_score: score,
                 });
+                            if (res.data && res.data.new_score && onScoreUpdate) {
+                    onScoreUpdate(res.data.new_score);
+                }
             } catch (e) { console.warn('Failed to persist edit', e); }
         }
     }, [data, resumeId, onDataChange]);
 
-    const TemplateComponent = TEMPLATE_MAP[templateId] || ModernATS;
+    const handleDelete = useCallback(async (section: string, text: string) => {
+        setLocalData(prev => {
+            const updated = { ...prev };
+            const arr = updated[section as keyof StructuredResume] as string[] | undefined;
+            if (Array.isArray(arr)) {
+                const idx = arr.indexOf(text);
+                if (idx !== -1) {
+                    const newArr = [...arr];
+                    newArr.splice(idx, 1);
+                    (updated as any)[section] = newArr;
+                }
+            } else if (section === 'summary') {
+                updated.summary = '';
+            }
+            if (onDataChange) onDataChange(updated);
+            return updated;
+        });
 
+        if (resumeId) {
+            try {
+                await api.post('/analysis/delete-line', {
+                    resume_id: resumeId,
+                    original_text: text,
+                });
+            } catch (e) { console.warn('Failed to persist delete', e); }
+        }
+    }, [resumeId, onDataChange]);
+
+    const TemplateComponent = TEMPLATE_MAP[templateId] || ModernATS;
     return (
         <div style={{ width: '100%', height: '100%', overflowX: 'hidden', overflowY: 'auto', background: '#fff' }}>
             <ShimmerStyle />
-            <TemplateComponent data={localData} jd={jobDescription} onApply={handleApply} />
+            <ErrorBoundary>
+                <TemplateComponent data={localData} jd={jobDescription} onApply={handleApply} onDelete={handleDelete} />
+            </ErrorBoundary>
         </div>
     );
 };

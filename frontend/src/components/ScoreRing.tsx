@@ -7,15 +7,37 @@ interface ScoreRingProps {
 }
 
 const ScoreRing: React.FC<ScoreRingProps> = ({ score, size = 160, strokeWidth = 12 }) => {
-    const [offset, setOffset] = useState(0);
+    const [displayScore, setDisplayScore] = useState(score);
     const center = size / 2;
     const radius = center - strokeWidth;
     const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (score / 100) * circumference;
 
     useEffect(() => {
-        const progressOffset = circumference - (score / 100) * circumference;
-        setOffset(progressOffset);
-    }, [score, circumference]);
+        let startValue = displayScore;
+        const endValue = score;
+        if (startValue === endValue) return;
+
+        const duration = 1000; // 1 second
+        const startTime = performance.now();
+
+        const animate = (currentTime: number) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Ease out function
+            const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+            const currentDisplay = Math.round(startValue + (endValue - startValue) * easeOut(progress));
+            
+            setDisplayScore(currentDisplay);
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+
+        requestAnimationFrame(animate);
+    }, [score]);
 
     const getScoreColor = (s: number) => {
         if (s >= 75) return '#059669'; // Emerald-600
@@ -78,7 +100,7 @@ const ScoreRing: React.FC<ScoreRingProps> = ({ score, size = 160, strokeWidth = 
                 />
             </svg>
             <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <span style={{ fontSize: size * 0.22, fontWeight: 900, color: '#1e293b' }}>{score}%</span>
+                <span className="animate-in zoom-in-50 duration-300" style={{ fontSize: size * 0.22, fontWeight: 900, color: '#1e293b' }}>{displayScore}%</span>
                 <span style={{ fontSize: size * 0.07, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Score</span>
             </div>
         </div>
