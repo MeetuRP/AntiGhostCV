@@ -30,8 +30,7 @@ const Auth = () => {
     const navigate = useNavigate();
 
     const handleGoogleLogin = () => {
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-        window.location.href = `${apiBase}/auth/google`;
+        window.location.href = `/api/auth/google`;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {

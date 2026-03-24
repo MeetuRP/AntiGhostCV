@@ -6,4 +6,14 @@ import tsconfigPaths from 'vite-tsconfig-paths'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), tsconfigPaths()],
+  server: {
+    allowedHosts: ["tempie-undeep-latently.ngrok-free.dev", ".ngrok-free.app", ".ngrok-free.dev", "localhost"],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+  }
 })

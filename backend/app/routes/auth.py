@@ -139,9 +139,11 @@ async def complete_onboarding(
 
 @router.get("/google")
 async def google_login(request: Request):
-    redirect_uri = request.url_for('google_callback')
-    return await oauth.google.authorize_redirect(request, str(redirect_uri))
-
+    # HARDCODED for ngrok sharing - ensures Google gets the right callback address
+    redirect_uri = "https://tempie-undeep-latently.ngrok-free.dev/api/auth/google/callback"
+    print(f"DEBUG: Manually Set Redirect URI: {redirect_uri}")
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+    
 @router.get("/google/callback")
 async def google_callback(request: Request):
     import logging
