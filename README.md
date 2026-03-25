@@ -205,28 +205,6 @@ npm run dev
 
 Navigate to **http://localhost:5173** → Sign in with Google → Upload your resume → Explore!
 
-## 🌐 Public Sharing (via ngrok)
-
-You can share your local development environment with colleagues using **ngrok**. The project is optimized to run over a **single tunnel** using Vite's built-in proxy.
-
-### 1. Start Servers
-Ensure both your backend (port 8000) and frontend (port 5173) are running locally.
-
-### 2. Start ngrok Tunnel
-```bash
-ngrok http 5173
-```
-*Copy the generated `https://...` forwarding URL (e.g., `tempie-undeep-latently.ngrok-free.dev`).*
-
-### 3. Update Configuration
-- **Backend (.env)**: Set `FRONTEND_URL` to your ngrok URL.
-- **Google Cloud Console**: 
-  - Add the ngrok URL to **Authorized JavaScript origins**.
-  - Add `{NGROK_URL}/api/auth/google/callback` to **Authorized redirect URIs**.
-
-### 4. Sharing
-Share your ngrok URL! Everything (API, OAuth, Analytics) works through that single link.
-
 ---
 
 ## 📡 API Endpoints

@@ -33,7 +33,13 @@ app = FastAPI(title="AntiGhost CV AI API", lifespan=lifespan)
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins for easier ngrok sharing. Change for production!
+    allow_origins=[
+        settings.FRONTEND_URL, 
+        "http://localhost:5173", 
+        "http://localhost:5174", 
+        "http://127.0.0.1:5173", 
+        "http://127.0.0.1:5174"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
