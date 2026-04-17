@@ -80,25 +80,32 @@ resume_analyzer/
 ├── backend/                    # FastAPI Python backend
 │   ├── app/
 │   │   ├── main.py             # App entrypoint, CORS, middleware
-│   │   ├── config.py           # Pydantic settings (env vars)
 │   │   ├── database.py         # MongoDB async connection (Motor)
-│   │   ├── middleware.py       # JWT auth middleware
 │   │   ├── models.py           # Pydantic models (User, Resume, Analysis)
 │   │   ├── routes/
 │   │   │   ├── auth.py         # Google OAuth + JWT + profile CRUD
 │   │   │   ├── resume.py       # Upload, parse, auto-sync profile
+│   │   │   ├── evaluations.py  # Analysis history & detail retrieval
+│   │   │   ├── export_playwright.py # Playwright PDF/DOCX Export engine
 │   │   │   ├── analysis.py     # ATS scoring + skill matching
 │   │   │   ├── admin.py        # Admin stats, user mgmt, event logs
-│   │   │   └── events.py       # Public event tracking (visits)
+│   │   │   └── user.py         # Plan upgrades & user settings
 │   │   └── services/
-│   │       └── parser.py       # Smart resume parser engine
+│   │       ├── parser.py       # Smart resume parser engine
+│   │       ├── ai_resume_improver.py # Gemini-powered "Fix-It" Logic
+│   │       └── resume_merger.py # Export-time data merging
 │   ├── requirements.txt
+│   ├── run_server.py           # Production-ready uvicorn launcher
 │   └── .env                    # Secrets (not committed)
 │
 ├── frontend/                   # React + Vite + TypeScript
 │   ├── src/
-│   │   ├── components/         # Navbar, ResumeCard, FileUploader, etc.
-│   │   ├── routes/             # Home, Profile, Upload, Evaluate, Results
+│   │   ├── components/         # Navbar, ResumeCard, ScoreRing, etc.
+│   │   ├── routes/
+│   │   │   ├── results.tsx     /* core visualization page */
+│   │   │   ├── dashboard.tsx   /* user home */
+│   │   │   ├── profile.tsx     /* account info */
+│   │   │   └── ExportPage.tsx  /* headless-only export view */
 │   │   ├── lib/                # Zustand auth store, Axios API client
 │   │   └── types/              # TypeScript interfaces
 │   ├── public/                 # Static assets
@@ -110,19 +117,29 @@ resume_analyzer/
 
 ### Data Flow
 
+#### 📂 The Upload & Analysis Loop
 ```
-┌──────────┐    PDF Upload    ┌──────────────┐    MongoDB    ┌──────────┐
-│ Frontend │ ──────────────►  │  FastAPI API  │ ────────────► │ Database │
-│ (React)  │ ◄──────────────  │  (Python)     │ ◄──────────── │ (Mongo)  │
-└──────────┘   JSON Response  └──────┬───────┘   Query/Store  └──────────┘
-                                     │
-                              ┌──────▼───────┐
-                              │ Smart Parser │
-                              │  - PDFplumber │
-                              │  - Regex NLP  │
-                              │  - Skill DB   │
-                              │  - Role Map   │
-                              └──────────────┘
+┌──────────┐    PDF Upload    ┌──────────────┐    Sync Data    ┌──────────┐
+│ Frontend │ ──────────────►  │  FastAPI API  │ ─────────────► │ Database │
+│ (React)  │ ◄──────────────  │  (Python)     │ ◄───────────── │ (Mongo)  │
+└────▲─────┘   JSON Response  └──────┬───────┘    Query/Store  └──────────┘
+     │                               │
+     │                        ┌──────▼───────┐        ┌─────────────┐
+     │                        │ Smart Parser │        │ Google AI   │
+     │                        │  - PDFplumber│ ◄────► │ (Gemini 1.5)│
+     │                        │  - Regex NLP │        │ - Scoring   │
+     └────────────────────────│  - Skill DB  │        │ - Feedback  │
+                              └──────────────┘        └─────────────┘
+```
+
+#### 📑 The High-Fidelity Export Pipeline
+```
+┌────────────┐  1. Export Req  ┌──────────────┐  2. Launch     ┌───────────┐
+│ User/React │ ──────────────► │ FastAPI API  │ ─────────────► │ Playwright│
+└────▲───────┘                 └──────┬───────┘                └─────┬─────┘
+     │                                │                              │
+     │ 5. Return PDF                  │ 3. Authenticate              │ 4. Render
+     └────────────────────────────────┴─────────── Token ────────────┘
 ```
 
 ---
@@ -131,18 +148,18 @@ resume_analyzer/
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Frontend** | React 19, TypeScript, Vite | SPA with fast HMR |
-| **Styling** | Tailwind CSS | Utility-first, glassmorphic design |
-| **State** | Zustand | Lightweight auth state management |
-| **HTTP** | Axios | API client with auth interceptors |
-| **Routing** | React Router v7 | Client-side navigation + protected routes |
-| **Backend** | FastAPI (Python) | Async REST API with auto-docs |
-| **Generative SDK** | Google GenAI | Highspeed multimodal LLM queries (Gemini 2.5 Flash) |
-| **Auth** | Google OAuth 2.0 + JWT | Authlib + python-jose |
-| **Database** | MongoDB + Motor | Async document database tracking history & metrics |
-| **Parsing** | pdfplumber + MuPDF | PDF text extraction + NLP |
-| **Exporting** | Playwright + python-docx | High-fidelity PDF capture + Native Word generation |
-| **Validation** | Pydantic v2 | Schema validation + serialization |
+| **Core Frontend** | React 19, TypeScript, Vite | Next-gen SPA with sub-second HMR |
+| **Styling** | Tailwind CSS v4 | Utility-first, glassmorphic design system |
+| **Animations** | Framer Motion | Silky smooth micro-animations and page transitions |
+| **Analytics** | Chart.js & React-Chartjs-2 | Visual performance monitoring and activity trends |
+| **State** | Zustand | Lightweight and persistent auth state management |
+| **Viewer** | PDF.js (Mozilla) | High-performance, client-side resume rendering |
+| **Backend** | FastAPI (Python) | High-concurrency async REST API with auto-docs |
+| **AI Engine** | Google Gemini (1.5 Flash) | Context-aware ATS scoring and bullet-point "Fix-It" AI |
+| **Export Engine** | Playwright + python-docx | High-fidelity PDF capture + Native Word generation |
+| **Database** | MongoDB (Motor) | Async NoSQL database for flexible resume structures |
+| **Infrastructure** | Uvicorn + WatchFiles | Production-ready server with auto-reload capabilities |
+| **Validation** | Pydantic v2 | Strict type safety and schema serialization |
 
 ---
 
