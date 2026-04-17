@@ -198,15 +198,25 @@ FRONTEND_URL=http://localhost:5173
 
 ### 4. Start Backend
 
-```bash
+> [!IMPORTANT]
+> **PDF Export Requirement**: You MUST install the Playwright browser binaries before your first export, or the system will return a 500 error.
+> ```bash
+> npx playwright install chromium
+> ```
+
+Launch the API server using the provided abstraction script:
+
+**Windows (PowerShell/CMD):**
+```powershell
 cd backend
-.\venv\Scripts\python -m uvicorn app.main:app --port 8000 --reload
+.\venv\Scripts\activate
+python run_server.py
 ```
 
-or 
-
+**macOS / Linux:**
 ```bash
 cd backend
+source venv/bin/activate
 python run_server.py
 ```
 
