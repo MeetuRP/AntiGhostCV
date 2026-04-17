@@ -197,7 +197,7 @@ const Profile = () => {
                             <button onClick={() => setIsEditing(!isEditing)} className="secondary-button text-sm">
                                 {isEditing ? "Cancel" : "✏️ Edit Profile"}
                             </button>
-                            <input type="file" ref={fileInputRef} accept=".pdf" className="hidden"
+                            <input type="file" ref={fileInputRef} accept=".pdf,.docx" className="hidden"
                                 onChange={(e) => { if (e.target.files?.[0]) handleResumeUpload(e.target.files[0]); }} />
                             <button
                                 onClick={() => fileInputRef.current?.click()}

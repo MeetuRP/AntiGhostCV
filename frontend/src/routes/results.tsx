@@ -24,7 +24,9 @@ const Results = () => {
     const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
     const [loading, setLoading] = useState(true);
     const [resumeUrl, setResumeUrl] = useState<string | null>(null);
-    const [isExporting, setIsExporting] = useState(false);
+    const [exportingFormat, setExportingFormat] = useState<'pdf' | 'docx' | null>(null);
+    const [exportSuccess, setExportSuccess] = useState<{ format: string, filename: string } | null>(null);
+    const [userProfile, setUserProfile] = useState<{ name?: string, email?: string } | null>(null);
 
     // Template State
     const [panelView, setPanelView] = useState<PanelView>("original");
@@ -110,17 +112,31 @@ const Results = () => {
                     return;
                 }
 
-                // ── Path 2: Load from analysis history (existing) ──
-                const response = await api.get('/analysis/history');
+                // ── Path 2: Load from evaluation history (modern) ──
+                const response = await api.get('/evaluations/history');
                 const history = response.data;
                 if (history.length === 0) return;
 
                 const item = analysisId
-                    ? history.find((h: any) => h.id === analysisId)
-                    : history[history.length - 1];
+                    ? history.find((h: any) => h.resume_id === analysisId || h.id === analysisId)
+                    : history[0]; // evaluations history is sorted newest first, so [0] is latest
 
                 if (item) {
-                    setAnalysis(item);
+                    // Map evaluation document to AnalysisResult shape so UI displays correctly
+                    setAnalysis({
+                        id: item.id,
+                        user_id: item.user_id,
+                        resume_id: item.resume_id,
+                        job_title: item.job_title,
+                        job_description: item.job_description,
+                        ats_score: item.ats_score,
+                        initial_score: item.initial_score,
+                        skills_matched: item.skills_matched || [],
+                        missing_skills: item.missing_skills || [],
+                        summary: item.summary || "",
+                        suggestions: item.suggestions || [],
+                        created_at: item.created_at,
+                    });
                     if (initialScore === null) {
                         setInitialScore(item.initial_score || item.ats_score);
                     }
@@ -137,7 +153,18 @@ const Results = () => {
                 setLoading(false);
             }
         };
+
+        const fetchUser = async () => {
+            try {
+                const res = await api.get('/auth/me');
+                setUserProfile(res.data);
+            } catch (e) {
+                console.warn("Failed to fetch user profile for naming:", e);
+            }
+        };
+
         fetchResults();
+        fetchUser();
 
         return () => { if (resumeUrl) URL.revokeObjectURL(resumeUrl); };
     }, [analysisId, evaluationId]);
@@ -156,21 +183,43 @@ const Results = () => {
 
     const handleExport = async (format: 'pdf' | 'docx') => {
         if (!analysis) return;
-        setIsExporting(true);
+        setExportingFormat(format);
         try {
-            const res = await api.get(`/export/${format}/${analysis.resume_id}?t=${Date.now()}`, { responseType: 'blob' });
+            const exportId = evaluationId || analysis.id;
+            const res = await api.get(`/export/${format}/${exportId}`, { responseType: 'blob' });
+            
+            // DIRECT NAMING BYPASS: Use the data we already have in the frontend 
+            // to build a 100% reliable filename regardless of server headers.
+            const clean = (s: string) => s ? s.toLowerCase().trim().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') : 'unknown';
+            
+            // PRIORITY: Account Name > Resume Content Name > Email Prefix > User ID
+            const username = clean(
+                userProfile?.name || 
+                structuredResume?.basics?.name || 
+                userProfile?.email?.split('@')[0] || 
+                analysis.user_id || 
+                'user'
+            );
+            
+            const jobTitle = clean(analysis.job_title || 'export');
+            const filename = `${username}_${jobTitle}.${format}`;
+
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `resume.${format}`);
+            link.setAttribute('download', filename);
             document.body.appendChild(link);
             link.click();
             link.parentNode?.removeChild(link);
             window.URL.revokeObjectURL(url);
-        } catch (e) {
+
+            setExportSuccess({ format: format.toUpperCase(), filename });
+            setTimeout(() => setExportSuccess(null), 3000);
+        } catch (e: any) {
             console.error(`Failed to export ${format}`, e);
+            alert(`Failed to export ${format}: ${e.response?.data?.detail || e.message}`);
         } finally {
-            setIsExporting(false);
+            setExportingFormat(null);
         }
     };
 
@@ -234,13 +283,15 @@ const Results = () => {
                     Evaluation: <span className="text-indigo-600">{analysis.job_title}</span>
                 </h1>
                 <div className="flex items-center gap-3 shrink-0">
-                    <button onClick={() => handleExport('docx')} disabled={isExporting}
-                        className="px-4 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50">
-                        {isExporting ? "..." : "Export DOCX"}
+                    <button onClick={() => handleExport('docx')} disabled={!!exportingFormat}
+                        className="px-4 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2">
+                        {exportingFormat === 'docx' ? <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" /> : null}
+                        {exportingFormat === 'docx' ? "Exporting..." : "Export DOCX"}
                     </button>
-                    <button onClick={() => handleExport('pdf')} disabled={isExporting}
-                        className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all active:scale-95 disabled:opacity-50">
-                        {isExporting ? "..." : "Export PDF"}
+                    <button onClick={() => handleExport('pdf')} disabled={!!exportingFormat}
+                        className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2">
+                        {exportingFormat === 'pdf' ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
+                        {exportingFormat === 'pdf' ? "Exporting..." : "Export PDF"}
                     </button>
                     <div className="px-3 py-1.5 rounded-full bg-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-widest border border-slate-200">
                         Analysis Report
@@ -385,6 +436,44 @@ const Results = () => {
                                 impact={scoreToast.impact} 
                                 onClose={() => setScoreToast(null)} 
                             />
+                        )}
+                        {exportSuccess && (
+                            <motion.div
+                                initial={{ opacity: 0, x: 100, scale: 0.9 }}
+                                animate={{ opacity: 1, x: 0, scale: 1 }}
+                                exit={{ opacity: 0, x: 50, scale: 0.9, transition: { duration: 0.5 } }}
+                                className="fixed bottom-8 right-8 z-[110] w-72"
+                            >
+                                <div className="relative overflow-hidden p-5 rounded-2xl bg-white/40 border border-white/60 shadow-2xl backdrop-blur-xl">
+                                    <button 
+                                        onClick={() => setExportSuccess(null)}
+                                        className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-white/40 rounded-full transition-all"
+                                    >
+                                        <span className="text-lg leading-none">×</span>
+                                    </button>
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-xl shadow-lg shadow-emerald-200">
+                                            ✅
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Download Success</div>
+                                            <div className="text-lg font-black text-slate-800 mb-1">{exportSuccess.format} Exported</div>
+                                            <div className="text-[10px] text-slate-500 font-medium italic truncate max-w-[160px]">
+                                                {exportSuccess.filename}
+                                            </div>
+                                            <div className="text-[10px] text-emerald-600 mt-2 font-bold flex items-center gap-1.5">
+                                                <span>📂</span> Saved to downloads folder
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <motion.div 
+                                        initial={{ width: '100%' }}
+                                        animate={{ width: '0%' }}
+                                        transition={{ duration: 5, ease: 'linear' }}
+                                        className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-emerald-500/30 to-teal-500/30"
+                                    />
+                                </div>
+                            </motion.div>
                         )}
                     </AnimatePresence>
                     

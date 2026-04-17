@@ -1,24 +1,34 @@
+import asyncio
+import sys
+import os
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from .database import connect_to_mongo, close_mongo_connection
 from .config import settings
-from .routes import auth, resume, analysis, admin, events, export, evaluations, user
+from .routes import auth, resume, analysis, admin, events, export_playwright, evaluations, user
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Connect to MongoDB
     await connect_to_mongo()
-    
-    # Preload AI models
+
+    # Playwright Dependency Check
     try:
-        from sentence_transformers import SentenceTransformer
-        from .routes import analysis
-        analysis.router.st_model = SentenceTransformer('all-MiniLM-L6-v2')
-        print("[Startup] SentenceTransformer model preloaded successfully.")
-    except Exception as e:
-        print(f"[Startup] Warning: Could not preload SentenceTransformer: {e}")
+        from playwright.async_api import async_playwright
+    except ImportError:
+        raise RuntimeError("Playwright not installed. Please run: pip install playwright && playwright install")
+    
+    # Preload AI models (Commented out temporarily to speed up startup verification)
+    # try:
+    #     from sentence_transformers import SentenceTransformer
+    #     from .routes import analysis
+    #     analysis.router.st_model = SentenceTransformer('all-MiniLM-L6-v2')
+    #     print("[Startup] SentenceTransformer model preloaded successfully.")
+    # except Exception as e:
+    #     print(f"[Startup] Warning: Could not preload SentenceTransformer: {e}")
         
     yield
     
@@ -43,6 +53,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 app.add_middleware(
@@ -61,7 +72,7 @@ app.include_router(resume.router, prefix="/api/resume", tags=["Resume"])
 app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(events.router, prefix="/api/events", tags=["Events"])
-app.include_router(export.router, prefix="/api/export", tags=["Export"])
+app.include_router(export_playwright.router, prefix="/api/export", tags=["Export"])
 app.include_router(evaluations.router, prefix="/api/evaluations", tags=["Evaluations"])
 app.include_router(user.router, prefix="/api/user", tags=["User"])
 

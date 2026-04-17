@@ -17,7 +17,7 @@ const FileUploader = ({ onFileSelect }: FileUploaderProps) => {
     const { getRootProps, getInputProps, acceptedFiles } = useDropzone({
         onDrop,
         multiple: false,
-        accept: { 'application/pdf': ['.pdf'] },
+        accept: { 'application/pdf': ['.pdf'], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] },
         maxSize: maxFileSize,
     });
 
@@ -43,7 +43,7 @@ const FileUploader = ({ onFileSelect }: FileUploaderProps) => {
                         <div className="text-center">
                             <img src="/icons/info.svg" alt="upload" className="size-12 mx-auto mb-2" />
                             <p className="text-lg text-gray-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                            <p className="text-sm text-gray-400">PDF (max {formatSize(maxFileSize)})</p>
+                            <p className="text-sm text-gray-400">PDF or DOCX (max {formatSize(maxFileSize)})</p>
                         </div>
                     )}
                 </div>

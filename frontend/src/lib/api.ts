@@ -19,10 +19,12 @@ api.interceptors.response.use(
     (error) => {
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
-            // Only redirect if not already on auth page
             if (!window.location.pathname.startsWith('/auth')) {
                 window.location.href = '/auth';
             }
+        }
+        if (error.response?.status === 429) {
+            alert("🚀 AI Quota Reached: The AI provider (Google Gemini) is currently busy or you have reached your free-tier rate limit. Please wait about 30-60 seconds and try again.");
         }
         return Promise.reject(error);
     }

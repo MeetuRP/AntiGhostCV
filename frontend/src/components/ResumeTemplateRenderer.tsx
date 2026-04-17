@@ -161,12 +161,12 @@ const TextSwap: React.FC<{ text: string; isReplacing: boolean; nextText: string;
 
     if (phase === 'skeleton') {
         return (
-            <span className="inline-block relative align-middle" style={{ width: '100%', minHeight: '1em' }}>
+            <span className="inline-block relative align-middle" style={{ width: '120px', minHeight: '1em' }}>
                 <span className="block rounded h-[1em] animate-pulse" style={{
                     background: 'linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%)',
                     backgroundSize: '200% 100%',
                     animation: 'shimmer 1s infinite',
-                    width: '85%',
+                    width: '100%',
                     display: 'inline-block',
                     borderRadius: 4,
                 }} />
@@ -474,6 +474,62 @@ const BulletItem: React.FC<BulletItemProps> = ({
     );
 };
 
+// ─── Animated Summary ─────────────────────────────────────────────────────────
+
+interface AnimatedSummaryProps {
+    text: string;
+    section: string;
+    jobDescription: string;
+    onApply: (t: string, score: number) => void;
+    accentColor?: string;
+}
+
+const AnimatedSummary: React.FC<AnimatedSummaryProps> = ({
+    text, section, jobDescription, onApply, accentColor
+}) => {
+    const [isReplacing, setIsReplacing] = useState(false);
+    const [current, setCurrent] = useState(text);
+    const [next, setNext] = useState('');
+    const [lastScore, setLastScore] = useState(0);
+
+    // Sync if external text changes
+    useEffect(() => {
+        if (!isReplacing) setCurrent(text);
+    }, [text, isReplacing]);
+
+    const handleApply = (newText: string, score: number) => {
+        setNext(newText);
+        setLastScore(score);
+        setIsReplacing(true);
+    };
+
+    const handleComplete = () => {
+        setCurrent(next);
+        setIsReplacing(false);
+        onApply(next, lastScore);
+    };
+
+    return (
+        <span style={{ position: 'relative', display: 'inline' }}>
+            <TextSwap
+                text={current}
+                isReplacing={isReplacing}
+                nextText={next}
+                onComplete={handleComplete}
+            />
+            {!isReplacing && (
+                <InlineImprove
+                    text={current}
+                    section={section}
+                    jobDescription={jobDescription}
+                    onApply={handleApply}
+                    accentColor={accentColor}
+                />
+            )}
+        </span>
+    );
+};
+
 // ─── Contact Links ─────────────────────────────────────────────────────────────
 
 const ContactLinks: React.FC<{ links?: StructuredResume['links']; hyperlinks?: StructuredResume['hyperlinks']; linkStyle?: React.CSSProperties }> = ({ links, hyperlinks, linkStyle }) => {
@@ -546,8 +602,7 @@ const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: str
             <>
                 <Sec style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: '#3730a3', textTransform: 'uppercase' }}>Professional Summary</Sec>
                 <p style={{ fontSize: 12.5, lineHeight: 1.65, marginBottom: 6, ...WRAP_STYLE }}>
-                    <SmartText text={data.summary} />
-                    <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} />
+                    <AnimatedSummary text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} />
                 </p>
             </>
         )}
@@ -571,9 +626,9 @@ const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: str
                 <Sec style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: '#3730a3', textTransform: 'uppercase' }}>Technical Skills</Sec>
                 <div style={{ fontSize: 12, lineHeight: 1.9, ...WRAP_STYLE }}>
                     {Object.entries(data.skills_categorized).map(([category, items], i) => (
-                        <div key={i} style={{ marginBottom: 3 }}>
-                            <span style={{ fontWeight: 700 }}>{category}:</span>{' '}
-                            <span>{items.join(', ')}</span>
+                        <div key={i} style={{ marginBottom: 4, display: 'inline-block', width: '100%' }}>
+                            <span style={{ fontWeight: 700, marginRight: '4px' }}>{category}:</span>
+                            <AnimatedSummary text={items.join(', ')} section={`skills_categorized:${category}`} jobDescription={jd} onApply={(t, score) => onApply(`skills_categorized:${category}`, 0, t, score)} accentColor="#3730a3" />
                         </div>
                     ))}
                 </div>
@@ -581,7 +636,9 @@ const ModernATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: str
         ) : data.skills && data.skills.length > 0 ? (
             <>
                 <Sec style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: '#3730a3', textTransform: 'uppercase' }}>Skills</Sec>
-                <p style={{ fontSize: 12, lineHeight: 1.8, ...WRAP_STYLE }}>{data.skills.join(' · ')}</p>
+                <div style={{ fontSize: 12, lineHeight: 1.8, ...WRAP_STYLE }}>
+                    <AnimatedSummary text={data.skills.join(' · ')} section="skills_joined" jobDescription={jd} onApply={(t, score) => onApply('skills_joined', 0, t, score)} accentColor="#3730a3" />
+                </div>
             </>
         ) : null}
 
@@ -635,8 +692,7 @@ const MinimalATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: st
 
         {data.summary && (
             <p style={{ fontSize: 12, color: '#444', marginBottom: 14, lineHeight: 1.7, ...WRAP_STYLE }}>
-                <SmartText text={data.summary} />
-                <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} />
+                <AnimatedSummary text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} />
             </p>
         )}
 
@@ -727,8 +783,7 @@ const ExecutiveATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: 
 
         {data.summary && (
             <p style={{ fontSize: 12.5, lineHeight: 1.7, textAlign: 'justify', fontStyle: 'italic', color: '#333', margin: '12px 0', ...WRAP_STYLE }}>
-                <SmartText text={data.summary} />
-                <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} />
+                <AnimatedSummary text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} />
             </p>
         )}
 
@@ -770,8 +825,7 @@ const DeveloperATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: 
         <div style={{ padding: '20px 44px' }}>
             {data.summary && (
                 <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.65, marginBottom: 16, ...WRAP_STYLE }}>
-                    <SmartText text={data.summary} />
-                    <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} accentColor="#4f46e5" />
+                    <AnimatedSummary text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} accentColor="#4f46e5" />
                 </p>
             )}
 
@@ -824,8 +878,7 @@ const CreativeATS: React.FC<{ data: StructuredResume; jd: string; onApply: (s: s
         <div style={{ padding: '20px 44px' }}>
             {data.summary && (
                 <p style={{ fontSize: 13, color: '#78350f', lineHeight: 1.65, marginBottom: 16, fontStyle: 'italic', ...WRAP_STYLE }}>
-                    <SmartText text={data.summary} />
-                    <InlineImprove text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} accentColor="#c2410c" />
+                    <AnimatedSummary text={data.summary} section="summary" jobDescription={jd} onApply={(t, score) => onApply('summary', 0, t, score)} accentColor="#c2410c" />
                 </p>
             )}
 
@@ -927,13 +980,23 @@ const ResumeTemplateRenderer: React.FC<TemplateRendererProps> = ({
     const handleApply = useCallback(async (section: string, idx: number, newText: string, score: number = 0) => {
         setLocalData(prev => {
             const updated = { ...prev };
-            const arr = updated[section as keyof StructuredResume] as string[] | undefined;
-            if (Array.isArray(arr)) {
-                const newArr = [...arr];
-                newArr[idx] = newText;
-                (updated as any)[section] = newArr;
-            } else if (section === 'summary') {
-                updated.summary = newText;
+            
+            if (section.startsWith('skills_categorized:')) {
+                const category = section.split(':')[1];
+                if (updated.skills_categorized && updated.skills_categorized[category]) {
+                    updated.skills_categorized[category] = newText.split(',').map(s => s.trim()).filter(Boolean);
+                }
+            } else if (section === 'skills_joined') {
+                updated.skills = newText.split(/[,·]/).map(s => s.trim()).filter(Boolean);
+            } else {
+                const arr = updated[section as keyof StructuredResume] as string[] | undefined;
+                if (Array.isArray(arr)) {
+                    const newArr = [...arr];
+                    newArr[idx] = newText;
+                    (updated as any)[section] = newArr;
+                } else if (section === 'summary') {
+                    updated.summary = newText;
+                }
             }
             if (onDataChange) onDataChange(updated);
             return updated;
@@ -941,9 +1004,19 @@ const ResumeTemplateRenderer: React.FC<TemplateRendererProps> = ({
 
         if (resumeId) {
             try {
+                let originalText = '';
+                if (section.startsWith('skills_categorized:')) {
+                    const category = section.split(':')[1];
+                    originalText = data.skills_categorized?.[category]?.join(', ') || '';
+                } else if (section === 'skills_joined') {
+                    originalText = data.skills?.join(' · ') || '';
+                } else {
+                    originalText = (data[section as keyof StructuredResume] as string[])?.[idx] ?? data.summary ?? '';
+                }
+
                 const res = await api.post('/analysis/save-edit', {
                     resume_id: resumeId,
-                    original_text: (data[section as keyof StructuredResume] as string[])?.[idx] ?? data.summary,
+                    original_text: originalText,
                     improved_text: newText,
                     action: 'accept',
                     impact_score: score,

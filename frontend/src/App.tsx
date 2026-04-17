@@ -18,6 +18,7 @@ import Results from './routes/results';
 import Profile from './routes/profile';
 import History from './routes/history';
 import AdminDashboard from './routes/admin/dashboard';
+import ExportPage from './routes/ExportPage';
 import api from './lib/api';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -54,6 +55,7 @@ function App() {
         <Route path="/resume-examples" element={<ResumeExamples />} />
         <Route path="/blog" element={<Blog />} />
         <Route path="/about" element={<About />} />
+        <Route path="/resume/export/:evaluationId" element={<ExportPage />} />
         <Route path="/dashboard" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
         <Route path="/auth" element={<Auth />} />

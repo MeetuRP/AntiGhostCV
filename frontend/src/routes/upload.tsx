@@ -43,7 +43,7 @@ const Upload = () => {
                         </>
                     ) : (
                         <>
-                            <h2>Upload your PDF resume to extract skills and details</h2>
+                            <h2>Upload your PDF or DOCX resume to extract skills and details</h2>
                             <div className="w-full max-w-xl mt-8 flex flex-col gap-4">
                                 <FileUploader onFileSelect={setFile} />
                                 <button

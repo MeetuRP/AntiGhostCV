@@ -3,6 +3,16 @@ import re
 import hashlib
 from typing import Dict, Any, Tuple
 
+def get_safe_hash(text: str) -> str:
+    """Normalize line endings and whitespace before hashing to ensure cross-platform consistency."""
+    if not text: return ""
+    # Normalize line endings to \n
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    # Strip trailing whitespace from each line
+    lines = [line.rstrip() for line in text.split('\n')]
+    text = '\n'.join(lines).strip()
+    return hashlib.md5(text.encode('utf-8')).hexdigest()
+
 def normalize_text(text: str) -> str:
     """Lowercase, remove all non-alphanumeric, collapse whitespace for fuzzy matching."""
     text = text.lower()
@@ -25,30 +35,76 @@ def merge_accepted_edits(data: Dict[str, Any], accepted_edits: Dict[str, Any]) -
 
     stats = {"merged": 0}
 
-    def apply_to_item(item):
+    def deduplicate_content(text: str, label_to_strip: str = None) -> str:
+        """Deeply cleans text by removing redundant labels and repeated phrases."""
+        if not text: return text
+        
+        # 1. Strip the redundant label if the AI prepended it (e.g., "Skills: Skills: Java" -> "Java")
+        if label_to_strip:
+            clean_label = label_to_strip.strip().rstrip(':').lower()
+            t_lower = text.lower()
+            if t_lower.startswith(clean_label):
+                # Find where the colon or label ends and strip it
+                first_colon = text.find(':')
+                if first_colon != -1 and first_colon < len(label_to_strip) + 10:
+                    text = text[first_colon + 1:].strip()
+
+        # 2. Deduplicate comma-separated lists (common for skills)
+        if ',' in text:
+            parts = [p.strip() for p in text.split(',')]
+            seen = []
+            for p in parts:
+                if p and p.lower() not in [s.lower() for s in seen]:
+                    seen.append(p)
+            text = ", ".join(seen)
+            
+        # 3. Simple sentence-level deduplication (for paragraphs)
+        sentences = [s.strip() for s in text.split('.') if s.strip()]
+        unique_sentences = []
+        for s in sentences:
+            if s.lower() not in [us.lower() for us in unique_sentences]:
+                unique_sentences.append(s)
+        if len(unique_sentences) < len(sentences):
+            text = ". ".join(unique_sentences) + "."
+            
+        return text
+
+    def apply_to_item(item, context_key=None):
         if isinstance(item, str):
-            # 1. Exact MD5 hash match (precise)
-            h = hashlib.md5(item.encode('utf-8')).hexdigest()
+            current_text = item
+            # ... existing MD5 chain logic ...
+            edits_applied = 0
+            while edits_applied < 3: 
+                h = get_safe_hash(current_text)
+                if h in accepted_edits:
+                    current_text = accepted_edits[h]["improved"]
+                    stats["merged"] += 1
+                    edits_applied += 1
+                    continue
+                break
+
+            # 2. Fuzzy fallback
+            item_norm = normalize_text(current_text)
+            if item_norm in norm_edits:
+                current_text = norm_edits[item_norm]
+                stats["merged"] += 1
+            
+            # Clean it based on context (e.g. if we are in a skill category)
+            return deduplicate_content(current_text, label_to_strip=context_key)
+
+        elif isinstance(item, list):
+            joined_list = ", ".join(str(i) for i in item)
+            h = get_safe_hash(joined_list)
             if h in accepted_edits:
                 stats["merged"] += 1
-                return accepted_edits[h]["improved"]
-            
-            # 2. Fuzzy normalized matching
-            item_norm = normalize_text(item)
-            if item_norm in norm_edits:
-                stats["merged"] += 1
-                return norm_edits[item_norm]
-            
-            # 3. Substring matching (for parts of bullets or long paragraphs)
-            for orig_norm, improved in norm_edits.items():
-                if len(orig_norm) > 15 and (orig_norm in item_norm or item_norm in orig_norm):
-                    stats["merged"] += 1
-                    return improved
-                    
-        elif isinstance(item, list):
-            return [apply_to_item(i) for i in item]
+                new_val = accepted_edits[h]["improved"]
+                # Return the improvement as a single-item list if it was a list
+                return [deduplicate_content(new_val, label_to_strip=context_key)]
+                 
+            return [apply_to_item(i, context_key=context_key) for i in item]
         elif isinstance(item, dict):
-            return {k: apply_to_item(v) for k, v in item.items()}
+            # Pass the key as context (e.g. "Frameworks & Libraries")
+            return {k: apply_to_item(v, context_key=k) for k, v in item.items()}
         return item
 
     # Deep copy avoid modifying original if needed, though here we return a new one
@@ -68,7 +124,7 @@ def filter_deleted_blocks(data: Dict[str, Any], deleted_blocks: list) -> Tuple[D
 
     def process_item(item):
         if isinstance(item, str):
-            h = hashlib.md5(item.encode('utf-8')).hexdigest()
+            h = get_safe_hash(item)
             if h in deleted_set:
                 stats["deleted"] += 1
                 return None

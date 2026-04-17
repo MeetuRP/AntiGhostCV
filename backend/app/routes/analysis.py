@@ -203,9 +203,11 @@ async def improve_line(req: ImproveLineRequest, current_user: UserModel = Depend
     res = await improver_service.improve_line(req.text, req.job_description, req.section, user_id=str(current_user.id))
     
     if "QUOTA_EXCEEDED" in res.improved_text:
+        # Strip the internal flag for display
+        clean_msg = res.improved_text.replace("[QUOTA_EXCEEDED]", "").strip()
         raise HTTPException(
             status_code=429,
-            detail={"message": res.improved_text, "quota_reached": True}
+            detail={"message": clean_msg, "quota_reached": True}
         )
 
     # Increment usage counter
@@ -260,7 +262,8 @@ async def save_edit(req: SaveEditRequest, current_user: UserModel = Depends(get_
     
     new_score = None
     if req.action == "accept":
-        safe_key = hashlib.md5(req.original_text.encode('utf-8')).hexdigest()
+        from ..services.resume_merger import get_safe_hash
+        safe_key = get_safe_hash(req.original_text)
         
         await db.resumes.update_one(
             {"_id": to_object_id(req.resume_id), "user_id": str(current_user.id)},
@@ -317,10 +320,10 @@ class DeleteLineRequest(BaseModel):
 
 @router.post("/delete-line")
 async def delete_line(req: DeleteLineRequest, current_user: UserModel = Depends(get_current_user)):
-    import hashlib
+    from ..services.resume_merger import get_safe_hash
     db = get_db()
     
-    safe_key = hashlib.md5(req.original_text.encode('utf-8')).hexdigest()
+    safe_key = get_safe_hash(req.original_text)
     
     await db.resumes.update_one(
         {"_id": to_object_id(req.resume_id), "user_id": str(current_user.id)},

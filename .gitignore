@@ -62,3 +62,10 @@ pnpm-debug.log*
 Thumbs.db
 desktop.ini
 *.lnk
+
+# ==================== Debugging / Temp ====================
+auth_debug.log
+test_*.py
+check_*.py
+run_export_test.py
+*.bak

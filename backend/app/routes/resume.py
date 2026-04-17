@@ -21,8 +21,12 @@ async def upload_resume(
     file: UploadFile = File(...),
     current_user: UserModel = Depends(get_current_user)
 ):
-    if not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+    filename_lower = file.filename.lower()
+    is_pdf = filename_lower.endswith(".pdf")
+    is_docx = filename_lower.endswith(".docx")
+
+    if not is_pdf and not is_docx:
+        raise HTTPException(status_code=400, detail="Only PDF and DOCX files are allowed")
 
     # Save file
     file_id = str(ObjectId())
@@ -30,17 +34,23 @@ async def upload_resume(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Parse resume (legacy for backward compat)
+    # Parse resume based on file type
     try:
-        text = ResumeParser.extract_text(file_path)
+        if is_docx:
+            text = ResumeParser.extract_text_from_docx(file_path)
+        else:
+            text = ResumeParser.extract_text(file_path)
         extracted_data = ResumeParser.parse_resume(text)
     except Exception as e:
         os.remove(file_path)
         raise HTTPException(status_code=500, detail=f"Error parsing resume: {str(e)}")
 
-    # NEW: Deep structured parsing (captures hyperlinks, summary, symbols, etc.)
+    # Deep structured parsing (captures hyperlinks, summary, symbols, etc.)
     try:
-        structured_json = ResumeParser.extract_structured_resume(file_path)
+        if is_docx:
+            structured_json = ResumeParser.extract_structured_resume_from_docx(file_path)
+        else:
+            structured_json = ResumeParser.extract_structured_resume(file_path)
     except Exception as e:
         print(f"[Warning] Deep parser failed, falling back: {e}")
         structured_json = extracted_data.model_dump()

@@ -59,6 +59,12 @@ AntiGhost CV is a state-of-the-art platform that transforms static PDFs into dyn
 - **JWT tokens** — Stateless authentication with configurable (7-day) expiration.
 - **Protected routes** — Frontend route guards + backend internal middleware for API security.
 
+### 📑 High-Fidelity Export System
+- **Intelligent PDF Rendering** — Uses headless Playwright to capture pixel-perfect, CSS-heavy resume templates that traditional PDF libraries fail to render.
+- **Smart Filename Generation** — Automatically constructs professional names (`firstname_lastname_jobtitle.pdf`) by pulling from Account Profiles and Resume Metadata.
+- **Isolated UX Feedback** — Specialized independent loading states for PDF vs DOCX actions, ensuring clear user intent tracking.
+- **DOCX Fallback Engine** — Native XML-based `.docx` generation for full editability in Microsoft Word.
+
 ### 📊 Admin Analytics Dashboard (HUD)
 - **Premium Performance HUD** — Vibrant gradient-based dashboard for real-time monitoring of Users, Resumes, Evaluations, and Visits.
 - **Traffic Intelligence** — Automated site visit logging with IP and UA capture; 30-day interactive activity charts.
@@ -134,7 +140,8 @@ resume_analyzer/
 | **Generative SDK** | Google GenAI | Highspeed multimodal LLM queries (Gemini 2.5 Flash) |
 | **Auth** | Google OAuth 2.0 + JWT | Authlib + python-jose |
 | **Database** | MongoDB + Motor | Async document database tracking history & metrics |
-| **Parsing** | pdfplumber + regex | PDF text extraction + NLP |
+| **Parsing** | pdfplumber + MuPDF | PDF text extraction + NLP |
+| **Exporting** | Playwright + python-docx | High-fidelity PDF capture + Native Word generation |
 | **Validation** | Pydantic v2 | Schema validation + serialization |
 
 ---
@@ -169,6 +176,9 @@ python -m venv venv
 source venv/bin/activate
 
 pip install -r requirements.txt
+
+# Install Playwright browsers (Required for PDF Export)
+npx playwright install chromium
 ```
 
 ### 3. Environment Variables
@@ -191,6 +201,13 @@ FRONTEND_URL=http://localhost:5173
 ```bash
 cd backend
 .\venv\Scripts\python -m uvicorn app.main:app --port 8000 --reload
+```
+
+or 
+
+```bash
+cd backend
+python run_server.py
 ```
 
 ### 5. Frontend Setup & Start
@@ -224,6 +241,8 @@ Navigate to **http://localhost:5173** → Sign in with Google → Upload your re
 | `GET` | `/api/admin/visitors` | Get detailed site traffic log |
 | `GET` | `/api/admin/logins` | Get detailed user login history |
 | `GET` | `/api/admin/activity` | Get 30-day activity timeline |
+| `GET` | `/api/export/pdf/:id` | Export optimized resume as PDF |
+| `GET` | `/api/export/docx/:id` | Export optimized resume as DOCX |
 
 > 📖 Interactive API docs available at **http://localhost:8000/docs** (Swagger UI)
 
@@ -267,6 +286,8 @@ PDF → Text Extraction (pdfplumber)
 - [x] Suggested roles from skills
 - [x] Analytics dashboard with performance trends
 - [x] Visitor and login tracking system
+- [x] High-Fidelity PDF/DOCX Export (Playwright)
+- [x] Smart Professional Filename Generation
 - [ ] Payment Gateway Integration (Stripe/Checkout)
 
 ## 🤝 Contributing

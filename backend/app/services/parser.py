@@ -546,6 +546,116 @@ class ResumeParser:
             "suggested_roles": suggested_roles,
         }
 
+    # ── DOCX Support ──────────────────────────────────────────────────────────
+
+    @staticmethod
+    def extract_text_from_docx(file_path: str) -> str:
+        """
+        Extract raw text from a DOCX file using python-docx.
+        Preserves paragraph breaks and bullet points.
+        """
+        from docx import Document as DocxDocument
+
+        doc = DocxDocument(file_path)
+        lines = []
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            if text:
+                # Detect list items by style name (e.g., 'List Bullet', 'List Number')
+                style_name = (para.style.name or "").lower()
+                if "list" in style_name or "bullet" in style_name:
+                    text = f"• {text}"
+                lines.append(text)
+        return "\n".join(lines)
+
+    @staticmethod
+    def extract_hyperlinks_from_docx(file_path: str) -> List[Dict[str, str]]:
+        """
+        Extract hyperlinks embedded in a DOCX file.
+        """
+        from docx import Document as DocxDocument
+        import xml.etree.ElementTree as ET
+
+        hyperlinks = []
+        try:
+            doc = DocxDocument(file_path)
+            # Namespace map for Office XML
+            nsmap = {
+                'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+                'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+            }
+
+            for para in doc.paragraphs:
+                # Find hyperlink elements in the paragraph XML
+                for hyperlink_el in para._element.findall('.//w:hyperlink', nsmap):
+                    r_id = hyperlink_el.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+                    if r_id:
+                        try:
+                            rel = doc.part.rels.get(r_id)
+                            if rel and hasattr(rel, 'target_ref'):
+                                url = rel.target_ref
+                                # Get the display text
+                                display_text = ''.join(
+                                    node.text or ''
+                                    for node in hyperlink_el.findall('.//w:t', nsmap)
+                                )
+                                hyperlinks.append({
+                                    "text": display_text.strip() or url,
+                                    "url": url.strip()
+                                })
+                        except Exception:
+                            pass
+        except Exception as e:
+            print(f"[Parser] DOCX hyperlink extraction failed: {e}")
+
+        return hyperlinks
+
+    @staticmethod
+    def extract_structured_resume_from_docx(file_path: str) -> Dict[str, Any]:
+        """
+        Master parser for DOCX files: returns the same structured JSON as extract_structured_resume.
+        """
+        text = ResumeParser.extract_text_from_docx(file_path)
+        hyperlinks = ResumeParser.extract_hyperlinks_from_docx(file_path)
+
+        email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text)
+        email = email_match.group(0) if email_match else None
+
+        phone_match = re.search(r'(\+?[\d\s\-().]{7,20})', text)
+        phone = None
+        if phone_match:
+            candidate = phone_match.group(0).strip()
+            if sum(c.isdigit() for c in candidate) >= 7:
+                phone = candidate
+
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        name = lines[0] if lines else None
+
+        links = ResumeParser.extract_links(text, hyperlinks)
+        skills = ResumeParser.extract_skills(text)
+        skills_categorized = ResumeParser.extract_skills_categorized(text)
+        sections = ResumeParser.extract_sections(text)
+        suggested_roles = ResumeParser.suggest_roles(skills)
+        summary = ResumeParser.extract_summary(text, name)
+
+        return {
+            "name": name,
+            "email": email or links.get("email"),
+            "phone": phone,
+            "summary": summary,
+            "links": links,
+            "hyperlinks": hyperlinks,
+            "skills": skills,
+            "skills_categorized": skills_categorized,
+            "experience": sections.get("EXPERIENCE", []),
+            "education": sections.get("EDUCATION", []),
+            "projects": sections.get("PROJECTS", []),
+            "certifications": sections.get("CERTIFICATIONS", []),
+            "publications": sections.get("PUBLICATIONS", []),
+            "volunteering": sections.get("VOLUNTEERING", []),
+            "suggested_roles": suggested_roles,
+        }
+
     @staticmethod
     def parse_resume(text: str) -> ExtractedData:
         """Legacy entry point for backward compat: parse resume text into ExtractedData."""
