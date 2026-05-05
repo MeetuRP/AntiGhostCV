@@ -2,6 +2,7 @@ import pdfplumber
 import re
 from typing import List, Dict, Optional, Any
 from ..models import ExtractedData
+from .date_utils import _parse_experience_years
 
 SKILLS_CAT_DB = {
     "Programming Languages": [
@@ -544,6 +545,7 @@ class ResumeParser:
             "publications": sections.get("PUBLICATIONS", []),
             "volunteering": sections.get("VOLUNTEERING", []),
             "suggested_roles": suggested_roles,
+            "calculated_experience_years": _parse_experience_years(sections.get("EXPERIENCE", [])),
         }
 
     # ── DOCX Support ──────────────────────────────────────────────────────────
@@ -654,6 +656,7 @@ class ResumeParser:
             "publications": sections.get("PUBLICATIONS", []),
             "volunteering": sections.get("VOLUNTEERING", []),
             "suggested_roles": suggested_roles,
+            "calculated_experience_years": _parse_experience_years(sections.get("EXPERIENCE", [])),
         }
 
     @staticmethod
