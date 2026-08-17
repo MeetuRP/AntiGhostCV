@@ -251,8 +251,15 @@ const Auth = () => {
                                         </motion.div>
                                     )}
 
-                                    <div className="w-full space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Password</label>
+                                     <div className="w-full space-y-2">
+                                         <div className="flex items-center justify-between">
+                                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Password</label>
+                                             {!isSignUp && (
+                                                 <Link to="/forgot-password" className="text-[10px] font-black uppercase tracking-wider text-indigo-600 hover:text-indigo-800 transition-colors">
+                                                     Forgot Password?
+                                                 </Link>
+                                             )}
+                                         </div>
                                         <div className="w-full group relative">
                                             <FiLock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" />
                                             <input 

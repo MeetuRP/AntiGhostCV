@@ -10,6 +10,7 @@ import type { AnalysisResult, UnifiedFeedback } from "../types";
 import { motion, AnimatePresence } from "framer-motion";
 import ScorePopup from "../components/ScorePopup";
 import ScoreProgress from "../components/ScoreProgress";
+import InterviewPopup from "../components/InterviewPopup";
 
 type PanelView = "original" | "template";
 
@@ -40,6 +41,18 @@ const Results = () => {
     const [initialScore, setInitialScore] = useState<number | null>(null);
     const [scoreHistory, setScoreHistory] = useState<number[]>([]);
     const [scoreToast, setScoreToast] = useState<{ score: number, added: number, impact: 'Low' | 'Medium' | 'High' } | null>(null);
+    
+    // Interview Popup State
+    const [showInterviewPopup, setShowInterviewPopup] = useState(false);
+
+    useEffect(() => {
+        if (analysis && analysis.job_title && analysis.resume_id) {
+            const timer = setTimeout(() => {
+                setShowInterviewPopup(true);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [analysis]);
 
     // Helper to load resume viewer + template engine for a given resume_id
     const loadResumeAssets = async (resumeId: string) => {
@@ -503,6 +516,16 @@ const Results = () => {
                     </div>
                 </section>
             </div>
+
+            <AnimatePresence>
+                {showInterviewPopup && analysis && analysis.job_title && analysis.resume_id && (
+                    <InterviewPopup
+                        jobRole={analysis.job_title}
+                        resumeId={analysis.resume_id}
+                        onClose={() => setShowInterviewPopup(false)}
+                    />
+                )}
+            </AnimatePresence>
         </main>
     );
 };

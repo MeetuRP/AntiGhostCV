@@ -1,2 +1,2 @@
 # Empty init file to make routes a package
-from . import auth, resume, analysis, admin, events, export_playwright, talent_api
+from . import auth, resume, analysis, admin, events, export_playwright, talent_api, interview

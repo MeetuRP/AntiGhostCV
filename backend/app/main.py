@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from .database import connect_to_mongo, close_mongo_connection
 from .config import settings
-from .routes import auth, resume, analysis, admin, events, export_playwright, evaluations, user, talent_api
+from .routes import auth, resume, analysis, admin, events, export_playwright, evaluations, user, talent_api, interview
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,6 +29,12 @@ async def lifespan(app: FastAPI):
     #     print("[Startup] SentenceTransformer model preloaded successfully.")
     # except Exception as e:
     #     print(f"[Startup] Warning: Could not preload SentenceTransformer: {e}")
+
+    # Seed interview question bank (runs only once if collection is empty)
+    try:
+        await interview.seed_question_bank()
+    except Exception as e:
+        print(f"[Startup] Interview question bank seeding warning: {e}")
         
     yield
     
@@ -76,6 +82,13 @@ app.include_router(export_playwright.router, prefix="/api/export", tags=["Export
 app.include_router(evaluations.router, prefix="/api/evaluations", tags=["Evaluations"])
 app.include_router(user.router, prefix="/api/user", tags=["User"])
 app.include_router(talent_api.router, prefix="/talent", tags=["Talent API"])
+app.include_router(interview.router, prefix="/api/interview", tags=["Interview"])
+
+# WebSocket routes must be mounted directly on app (not via prefix router)
+app.add_api_websocket_route(
+    "/ws/interview/transcribe/{session_id}",
+    interview.websocket_transcribe
+)
 
 @app.get("/")
 async def root():

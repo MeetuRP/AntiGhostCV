@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
@@ -14,9 +15,19 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
     GEMINI_API_KEY: str = ""
+    GOOGLE_APPLICATION_CREDENTIALS: str = ""
+    MAIL_USERNAME: str = ""
+    MAIL_PASSWORD: str = ""
+    MAIL_FROM: str = ""
+    MAIL_PORT: int = 587
+    MAIL_SERVER: str = "smtp.gmail.com"
 
     class Config:
         env_file = ".env"
 
 
 settings = Settings()
+
+if settings.GOOGLE_APPLICATION_CREDENTIALS:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_APPLICATION_CREDENTIALS
+

@@ -8,14 +8,18 @@ import ImprovementInsights from '../components/dashboard/ImprovementInsights';
 import ResumeHistory from '../components/dashboard/ResumeHistory';
 import NotificationCenter from '../components/dashboard/NotificationCenter';
 import api from '../lib/api';
-import type { Resume } from '../types';
+import interviewApi from '../lib/interviewApi';
+import type { Resume, InterviewSessionSummary } from '../types';
 import UpgradeModal from '../components/UpgradeModal';
+import InterviewSessionCard from '../components/interview/InterviewSessionCard';
 
 const Home = () => {
     const { isAuthenticated, user, isLoading } = useAuthStore();
     const [resumes, setResumes] = useState<Resume[]>([]);
     const [loadingResumes, setLoadingResumes] = useState(false);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [interviewSessions, setInterviewSessions] = useState<InterviewSessionSummary[]>([]);
+    const [loadingInterviews, setLoadingInterviews] = useState(false);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -30,7 +34,19 @@ const Home = () => {
                     setLoadingResumes(false);
                 }
             };
+            const fetchInterviews = async () => {
+                setLoadingInterviews(true);
+                try {
+                    const sessions = await interviewApi.getHistory();
+                    setInterviewSessions(sessions);
+                } catch (err) {
+                    console.error('Failed to fetch interview sessions', err);
+                } finally {
+                    setLoadingInterviews(false);
+                }
+            };
             fetchResumes();
+            fetchInterviews();
         }
 
         // Setup global API interceptor for this session to catch 403 upgrade exceptions
@@ -129,6 +145,47 @@ const Home = () => {
                         {/* Section 3: Timeline */}
                         <div className="pt-8">
                             <ResumeHistory />
+                        </div>
+
+                        {/* Section 4: Interview Journey */}
+                        <div className="pt-8">
+                            <div className="flex items-center justify-between mb-8">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xl">⚡</span>
+                                    <h2 className="text-2xl font-black text-slate-900 tracking-tighter">Interview Journey</h2>
+                                </div>
+                                {interviewSessions.length > 0 && (
+                                    <Link to="/interview" className="text-xs font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest transition-colors">
+                                        View All →
+                                    </Link>
+                                )}
+                            </div>
+
+                            {loadingInterviews ? (
+                                <div className="h-32 bg-slate-50/50 animate-pulse rounded-[2rem]" />
+                            ) : interviewSessions.length === 0 ? (
+                                <div className="p-10 bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] text-center">
+                                    <div className="w-[60px] h-[60px] mx-auto mb-4 rounded-full border-2 border-indigo-300 flex items-center justify-center animate-pulse">
+                                        <div className="w-8 h-8 rounded-full bg-indigo-500" />
+                                    </div>
+                                    <h4 className="text-lg font-black text-slate-800 mb-1">No mock interviews yet</h4>
+                                    <p className="text-slate-400 text-sm font-medium italic mb-6">
+                                        Build interview confidence beyond your resume.
+                                    </p>
+                                    <Link
+                                        to="/interview"
+                                        className="inline-block px-8 py-3.5 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
+                                    >
+                                        Start AI Interview Prep →
+                                    </Link>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {interviewSessions.slice(0, 3).map((s) => (
+                                        <InterviewSessionCard key={s.session_id} session={s} compact />
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
 

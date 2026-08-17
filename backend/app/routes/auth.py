@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import secrets
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from authlib.integrations.starlette_client import OAuth
 from starlette.requests import Request
@@ -7,8 +8,12 @@ from datetime import datetime, timedelta
 from typing import Optional
 from ..config import settings
 from ..database import get_db
-from ..models import UserModel, UserRegister, UserLogin, OnboardingData, UserProfileUpdate
+from ..models import (
+    UserModel, UserRegister, UserLogin, OnboardingData, UserProfileUpdate,
+    ForgotPasswordRequest, ResetPasswordRequest
+)
 from ..middleware import get_current_user
+from ..services.email_service import send_password_reset_email
 import bcrypt
 import logging
 
@@ -112,6 +117,108 @@ async def login(login_data: UserLogin):
     access_token = create_access_token(data={"sub": str(user["_id"]), "email": user["email"]})
     
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest, background_tasks: BackgroundTasks):
+    """
+    Generates a secure password reset token, saves it to MongoDB with a 30-minute expiration,
+    and sends a reset email via Gmail SMTP.
+    """
+    db = get_db()
+    user = await db.users.find_one({"email": req.email})
+
+    # If user doesn't exist, return neutral success message to prevent user enumeration
+    if not user:
+        return {"message": "If that email is registered, a password reset link has been sent to your inbox."}
+
+    # If user signed up via Google (has no password hash)
+    if not user.get("password_hash") or user.get("google_id") != "email_auth":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account uses Google Login. Please sign in with Google."
+        )
+
+    # Generate a cryptographically secure 32-byte hex token
+    reset_token = secrets.token_hex(32)
+    expires_at = datetime.utcnow() + timedelta(minutes=30)
+
+    # Store reset token in password_resets collection
+    await db.password_resets.update_one(
+        {"user_id": str(user["_id"])},
+        {
+            "$set": {
+                "user_id": str(user["_id"]),
+                "email": user["email"],
+                "token": reset_token,
+                "expires_at": expires_at,
+                "created_at": datetime.utcnow(),
+            }
+        },
+        upsert=True
+    )
+
+    # Build reset URL
+    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
+    user_name = user.get("name", "Candidate")
+
+    # Send email in background task for fast response time
+    background_tasks.add_task(send_password_reset_email, user["email"], user_name, reset_url)
+
+    return {"message": "If that email is registered, a password reset link has been sent to your inbox."}
+
+
+@router.post("/reset-password")
+async def reset_password(req: ResetPasswordRequest):
+    """
+    Validates password reset token, updates the user's password_hash with bcrypt,
+    and invalidates the reset token.
+    """
+    if not req.token or not req.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token and new password are required."
+        )
+
+    if len(req.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters long."
+        )
+
+    db = get_db()
+    reset_record = await db.password_resets.find_one({"token": req.token})
+
+    if not reset_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset link."
+        )
+
+    # Check expiration
+    if reset_record.get("expires_at") and reset_record["expires_at"] < datetime.utcnow():
+        await db.password_resets.delete_one({"_id": reset_record["_id"]})
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This password reset link has expired. Please request a new one."
+        )
+
+    # Hash new password
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(req.new_password.encode('utf-8'), salt).decode('utf-8')
+
+    # Update user password in DB
+    from bson import ObjectId
+    user_id = reset_record["user_id"]
+    await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"password_hash": hashed_password}}
+    )
+
+    # Delete used reset token
+    await db.password_resets.delete_one({"_id": reset_record["_id"]})
+
+    return {"message": "Password updated successfully. You can now sign in with your new password."}
 
 @router.post("/onboarding")
 async def complete_onboarding(

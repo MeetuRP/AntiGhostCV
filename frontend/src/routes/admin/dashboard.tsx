@@ -41,6 +41,7 @@ interface Stats {
         evaluations: number;
          visits: number;
         logins: number;
+        interview_sessions?: number;
         ai: {
             total_calls: number;
             total_input: number;
@@ -109,6 +110,19 @@ interface ResumeRow {
     uploaded_at: string | null;
 }
 
+interface InterviewRankingRow {
+    rank: number;
+    user_name: string;
+    user_email: string;
+    job_roles: string[];
+    best_score: number;
+    avg_score: number;
+    avg_technical: number;
+    avg_communication: number;
+    sessions_count: number;
+    last_session_date: string | null;
+}
+
 type Tab = 'dashboard' | 'users' | 'resumes' | 'evaluations' | 'visitors';
 
 const AdminDashboard = () => {
@@ -127,6 +141,7 @@ const AdminDashboard = () => {
     const [skillsReport, setSkillsReport] = useState<{ skill: string; count: number }[]>([]);
     const [scoreDist, setScoreDist] = useState<{ label: string; count: number }[]>([]);
     const [activity, setActivity] = useState<any[]>([]);
+    const [rankings, setRankings] = useState<InterviewRankingRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [selectedEval, setSelectedEval] = useState<EvalRow | null>(null);
@@ -160,7 +175,7 @@ const AdminDashboard = () => {
         setLoading(true);
         setError('');
         try {
-            const [statsRes, usersRes, resumesRes, evalsRes, visitorsRes, loginsRes, industryRes, skillsRes, scoreRes, activityRes] =
+            const [statsRes, usersRes, resumesRes, evalsRes, visitorsRes, loginsRes, industryRes, skillsRes, scoreRes, activityRes, rankingsRes] =
                 await Promise.all([
                     api.get(`/admin/stats?period=${period}`),
                     api.get('/admin/users'),
@@ -172,6 +187,7 @@ const AdminDashboard = () => {
                     api.get('/admin/skills-report'),
                     api.get('/admin/score-distribution'),
                     api.get('/admin/activity'),
+                    api.get('/admin/interview-rankings'),
                 ]);
             setStats(statsRes.data);
             setUsers(usersRes.data);
@@ -183,6 +199,7 @@ const AdminDashboard = () => {
             setSkillsReport(skillsRes.data.skills);
             setScoreDist(scoreRes.data.distribution);
             setActivity(activityRes.data.timeline);
+            setRankings(rankingsRes.data);
         } catch (err: any) {
             if (err?.response?.status === 403) {
                 setError('Access denied. You are not an admin.');
@@ -247,6 +264,7 @@ const AdminDashboard = () => {
         { label: 'Total Users', value: stats?.totals.users ?? 0, icon: '👥', gradient: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', tab: 'users' as Tab },
         { label: 'Resumes', value: stats?.period.resumes ?? 0, icon: '📄', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', tab: 'resumes' as Tab },
         { label: 'Evaluations', value: stats?.period.evaluations ?? 0, icon: '🎯', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', tab: 'evaluations' as Tab },
+        { label: 'Interviews', value: stats?.totals.interview_sessions ?? 0, icon: '🎤', gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', tab: 'dashboard' as Tab },
         { label: 'Logins', value: stats?.period.logins ?? 0, icon: '🔑', gradient: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', tab: 'visitors' as Tab },
         { label: 'Visits', value: stats?.period.visits ?? 0, icon: '🌐', gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', tab: 'visitors' as Tab },
     ];
@@ -377,7 +395,7 @@ const AdminDashboard = () => {
                                 </div>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 14 }}>
                                 {mainStats.map((card) => (
                                     <button
                                         key={card.label}
@@ -477,6 +495,81 @@ const AdminDashboard = () => {
                                     <div style={{ height: 260 }}>
                                         <Bar data={industryChartData} options={{ ...chartOptions, indexAxis: 'y' as const }} />
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Interview Rankings Leaderboard */}
+                            <div className="card" style={{ overflow: 'hidden' }}>
+                                <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div>
+                                        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', margin: 0 }}>🏆 AI Voice Interview Leaderboard</h3>
+                                        <p style={{ color: '#64748b', fontSize: 12, margin: '2px 0 0' }}>Top candidate performers across mock interview sessions</p>
+                                    </div>
+                                    <span style={{ background: '#ede9fe', color: '#7c3aed', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
+                                        {rankings.length} Ranked Candidates
+                                    </span>
+                                </div>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                                        <thead>
+                                            <tr style={{ background: '#f8fafc' }}>
+                                                <th style={{ textAlign: 'center', padding: '12px 16px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, width: 60 }}>Rank</th>
+                                                <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Candidate</th>
+                                                <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Email</th>
+                                                <th style={{ textAlign: 'left', padding: '12px 20px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Practiced Roles</th>
+                                                <th style={{ textAlign: 'center', padding: '12px 16px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Best Score</th>
+                                                <th style={{ textAlign: 'center', padding: '12px 16px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Avg Score</th>
+                                                <th style={{ textAlign: 'center', padding: '12px 16px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Tech Score</th>
+                                                <th style={{ textAlign: 'center', padding: '12px 16px', color: '#64748b', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Sessions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {rankings.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={8} style={{ padding: 32, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>
+                                                        No completed interview sessions recorded yet.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                rankings.map((rk) => (
+                                                    <tr key={rk.rank + rk.user_email} style={{ borderTop: '1px solid #f1f5f9', transition: 'background 0.15s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                                                        <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 800 }}>
+                                                            {rk.rank === 1 ? '🥇' : rk.rank === 2 ? '🥈' : rk.rank === 3 ? '🥉' : `#${rk.rank}`}
+                                                        </td>
+                                                        <td style={{ padding: '14px 20px', fontWeight: 600, color: '#1e293b' }}>{rk.user_name}</td>
+                                                        <td style={{ padding: '14px 20px', color: '#64748b' }}>{rk.user_email}</td>
+                                                        <td style={{ padding: '14px 20px' }}>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                                {rk.job_roles.map((r) => (
+                                                                    <span key={r} style={{ background: '#e0e7ff', color: '#4338ca', padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{r}</span>
+                                                                ))}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                                                            <span style={{
+                                                                background: rk.best_score >= 7 ? '#d1fae5' : rk.best_score >= 4 ? '#fef3c7' : '#fee2e2',
+                                                                color: rk.best_score >= 7 ? '#047857' : rk.best_score >= 4 ? '#b45309' : '#b91c1c',
+                                                                padding: '4px 12px', borderRadius: 20, fontSize: 13, fontWeight: 800
+                                                            }}>
+                                                                {rk.best_score.toFixed(1)}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, color: '#475569' }}>
+                                                            {rk.avg_score.toFixed(1)}
+                                                        </td>
+                                                        <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, color: '#6366f1' }}>
+                                                            {rk.avg_technical.toFixed(1)}
+                                                        </td>
+                                                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                                                            <span style={{ background: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
+                                                                {rk.sessions_count}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>

@@ -25,6 +25,7 @@ async def get_stats(period: str = "30d", admin: UserModel = Depends(require_admi
     total_evaluations = await db.analysis_results.count_documents({})
     total_visits = await db.site_events.count_documents({"event_type": "site_visit"})
     total_logins = await db.site_events.count_documents({"event_type": "login"})
+    total_interview_sessions = await db.interview_sessions.count_documents({"completed": True})
 
     # Period-specific stats
     now = datetime.utcnow()
@@ -64,6 +65,7 @@ async def get_stats(period: str = "30d", admin: UserModel = Depends(require_admi
             "evaluations": total_evaluations,
             "visits": total_visits,
             "logins": total_logins,
+            "interview_sessions": total_interview_sessions,
             "ai": ai_totals
         },
         "period": {
@@ -418,3 +420,58 @@ async def change_user_plan(req: PlanChangeRequest, admin: UserModel = Depends(re
     except Exception as e:
         return {"error": str(e)}
 
+@router.get("/interview-rankings")
+async def get_interview_rankings(
+    role: Optional[str] = None,
+    limit: int = 100,
+    sort: str = "best_score",
+    admin: UserModel = Depends(require_admin)
+):
+    """Interview rankings leaderboard with optional role filter."""
+    db = get_db()
+
+    match_filter = {"completed": True}
+    if role:
+        match_filter["job_role"] = role
+
+    pipeline = [
+        {"$match": match_filter},
+        {"$group": {
+            "_id": "$user_id",
+            "sessions_count": {"$sum": 1},
+            "best_score": {"$max": "$overall_score"},
+            "avg_score": {"$avg": "$overall_score"},
+            "avg_technical": {"$avg": "$technical_score"},
+            "avg_communication": {"$avg": "$communication_score"},
+            "last_session_date": {"$max": "$completed_at"},
+            "job_roles": {"$addToSet": "$job_role"},
+        }},
+        {"$sort": {sort if sort in ["best_score", "avg_score", "sessions_count"] else "best_score": -1}},
+        {"$limit": limit},
+    ]
+
+    rankings = await db.interview_sessions.aggregate(pipeline).to_list(length=limit)
+
+    result = []
+    for rank_idx, r in enumerate(rankings, start=1):
+        # Fetch user info
+        user = None
+        try:
+            user = await db.users.find_one({"_id": ObjectId(r["_id"])})
+        except Exception:
+            pass
+
+        result.append({
+            "rank": rank_idx,
+            "user_name": user.get("name", "Unknown") if user else "Unknown",
+            "user_email": user.get("email", "") if user else "",
+            "job_roles": r.get("job_roles", []),
+            "best_score": round(r.get("best_score", 0), 1),
+            "avg_score": round(r.get("avg_score", 0), 1),
+            "avg_technical": round(r.get("avg_technical", 0), 1),
+            "avg_communication": round(r.get("avg_communication", 0), 1),
+            "sessions_count": r.get("sessions_count", 0),
+            "last_session_date": r.get("last_session_date", "").isoformat() if r.get("last_session_date") else None,
+        })
+
+    return result

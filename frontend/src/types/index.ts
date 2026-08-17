@@ -69,6 +69,7 @@ export interface PlanLimits {
     jd_scans: number;
     fix_it_uses: number;
     cover_letters: number;
+    interview_sessions: number;
 }
 
 export interface UserUsage {
@@ -76,6 +77,7 @@ export interface UserUsage {
     jd_scans_used: number;
     fix_it_used: number;
     cover_letters_generated: number;
+    interview_sessions_used: number;
 }
 
 
@@ -118,4 +120,68 @@ export interface EvaluationSummary {
     initial_score?: number;
     summary: string;
     created_at: string;
+}
+
+// ── Interview Prep Types ────────────────────────────────────────────
+
+export interface InterviewQuestion {
+    question_id: string;
+    question_text: string;
+    category: 'hr' | 'technical' | 'behavioural';
+    difficulty: 'easy' | 'medium' | 'hard';
+    source?: 'bank' | 'gemini' | 'fallback';
+    user_answer?: string | null;
+    ai_score?: number | null;
+    ai_feedback?: string | null;
+    ideal_answer?: string | null;
+}
+
+export interface InterviewSession {
+    id: string;
+    user_id: string;
+    job_role: string;
+    resume_id: string;
+    questions: InterviewQuestion[];
+    overall_score: number | null;
+    technical_score: number | null;
+    hr_score: number | null;
+    communication_score: number | null;
+    completed: boolean;
+    started_at: string;
+    completed_at: string | null;
+}
+
+export interface InterviewSessionSummary {
+    session_id: string;
+    job_role: string;
+    overall_score: number | null;
+    communication_score: number | null;
+    technical_score: number | null;
+    hr_score: number | null;
+    completed_at: string | null;
+    total_questions: number;
+    started_at: string | null;
+}
+
+export interface ConfidenceMetrics {
+    wordsPerMinute: number;
+    pauseCount: number;
+    fillerWordCount: number;
+    fillerRatio: number;
+    totalSpeakingSeconds: number;
+    peakAmplitude: number;
+    wordCount: number;
+}
+
+export interface InterviewRanking {
+    rank: number;
+    user_name: string;
+    user_email: string;
+    job_roles: string[];
+    best_score: number;
+    avg_score: number;
+    avg_technical: number;
+    avg_communication: number;
+    sessions_count: number;
+    last_session_date: string | null;
 }

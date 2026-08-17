@@ -13,10 +13,10 @@ class UpgradePlanRequest(BaseModel):
 
 # Configured Plan Limits
 PLAN_LIMITS = {
-    "starter": {"jd_scans": 2, "fix_it_uses": 5, "cover_letters": 0},
-    "24_hour_pass": {"jd_scans": 10, "fix_it_uses": 20, "cover_letters": 0},
-    "season_pass": {"jd_scans": 50, "fix_it_uses": 100, "cover_letters": 0},
-    "premium": {"jd_scans": -1, "fix_it_uses": -1, "cover_letters": -1}
+    "starter": {"jd_scans": 2, "fix_it_uses": 5, "cover_letters": 0, "interview_sessions": 2},
+    "24_hour_pass": {"jd_scans": 10, "fix_it_uses": 20, "cover_letters": 0, "interview_sessions": 5},
+    "season_pass": {"jd_scans": 50, "fix_it_uses": 100, "cover_letters": 0, "interview_sessions": 20},
+    "premium": {"jd_scans": -1, "fix_it_uses": -1, "cover_letters": -1, "interview_sessions": -1}
 }
 
 @router.post("/upgrade-plan")

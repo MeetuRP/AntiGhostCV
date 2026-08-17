@@ -19,6 +19,11 @@ import Profile from './routes/profile';
 import History from './routes/history';
 import AdminDashboard from './routes/admin/dashboard';
 import ExportPage from './routes/ExportPage';
+import InterviewHome from './routes/interview/InterviewHome';
+import InterviewSession from './routes/interview/InterviewSession';
+import InterviewReport from './routes/interview/InterviewReport';
+import ForgotPassword from './routes/ForgotPassword';
+import ResetPassword from './routes/ResetPassword';
 import api from './lib/api';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -60,12 +65,17 @@ function App() {
         <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
         <Route path="/evaluate" element={<ProtectedRoute><Evaluate /></ProtectedRoute>} />
         <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/interview" element={<ProtectedRoute><InterviewHome /></ProtectedRoute>} />
+        <Route path="/interview/session/:sessionId" element={<ProtectedRoute><InterviewSession /></ProtectedRoute>} />
+        <Route path="/interview/report/:sessionId" element={<ProtectedRoute><InterviewReport /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   )

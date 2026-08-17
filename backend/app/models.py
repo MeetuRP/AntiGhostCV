@@ -47,12 +47,14 @@ class PlanLimits(BaseModel):
     jd_scans: int = 2
     fix_it_uses: int = 0
     cover_letters: int = 0
+    interview_sessions: int = 2
 
 class UserUsage(BaseModel):
     resume_evaluations: int = 0
     jd_scans_used: int = 0
     fix_it_used: int = 0
     cover_letters_generated: int = 0
+    interview_sessions_used: int = 0
 
 class AIUsage(BaseModel):
     total_api_calls: int = 0
@@ -99,6 +101,13 @@ class UserProfileUpdate(BaseModel):
     bio: Optional[str] = None
     social_links: Optional[SocialLinks] = None
     job_preferences: Optional[JobPreferences] = None
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
 
 class AdminUserUpdate(BaseModel):
     name: Optional[str] = None
@@ -182,3 +191,55 @@ class UserLogin(BaseModel):
 class OnboardingData(BaseModel):
     target_role: str
     experience_level: str
+
+
+# ── Interview Prep Models ────────────────────────────────────────────
+
+SUPPORTED_BANK_ROLES = [
+    "Frontend Developer", "Backend Developer", "Full Stack Developer",
+    "ML Engineer", "AI Engineer", "Data Scientist", "DevOps Engineer", "UI/UX Designer"
+]
+
+
+class InterviewQuestion(BaseModel):
+    question_id: str
+    question_text: str
+    category: str  # "hr", "technical", "behavioural"
+    difficulty: str  # "easy", "medium", "hard"
+    source: str = "bank"  # "bank" or "gemini"
+    user_answer: Optional[str] = None
+    ai_score: Optional[int] = None
+    ai_feedback: Optional[str] = None
+    ideal_answer: Optional[str] = None
+
+
+class InterviewSessionModel(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+    )
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    user_id: str
+    job_role: str
+    resume_id: str
+    questions: List[InterviewQuestion] = []
+    overall_score: Optional[float] = None
+    technical_score: Optional[float] = None
+    hr_score: Optional[float] = None
+    communication_score: Optional[float] = None
+    completed: bool = False
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    completed_at: Optional[datetime] = None
+
+
+class InterviewQuestionBankEntry(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+    )
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    job_role: str
+    question_text: str
+    category: str
+    difficulty: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
